@@ -17,6 +17,13 @@ const EmojiPalette = lazy(() => import('./EmojiPalette').then((module) => ({ def
 
 const IMAGE = /^image\//;
 
+/**
+ * An attachment's address is whatever the comment's author sent Todoist, so it
+ * is only drawn as a link when it is one: https from Todoist, or the demo's own
+ * blob: upload. Anything else (a `javascript:` address above all) is no link.
+ */
+const SAFE_FILE_URL = /^(https:\/\/|blob:)/i;
+
 /** "Today · 10:12", "7 Oct · 16:52": when a comment was written, to the minute. */
 function commentTime(iso: string, locale: 'en' | 'fr'): string {
   const date = new Date(iso);
@@ -41,13 +48,13 @@ const sizeLabel = (bytes?: number): string => {
  */
 function Attachment({ file }: { file: NoteAttachment }) {
   const [broken, setBroken] = useState(false);
-  if (!file.file_url) return null;
+  if (!file.file_url || !SAFE_FILE_URL.test(file.file_url.trim())) return null;
   const image = IMAGE.test(file.file_type ?? '') || file.resource_type === 'image';
   const name = file.file_name ?? file.file_url.split('/').pop() ?? file.file_url;
   if (image && !broken) {
     return (
       <a className="comment-image" href={file.file_url} target="_blank" rel="noopener noreferrer" title={name}>
-        <img src={file.image ?? file.file_url} alt={name} loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
+        <img src={file.image && SAFE_FILE_URL.test(file.image.trim()) ? file.image : file.file_url} alt={name} loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
       </a>
     );
   }
