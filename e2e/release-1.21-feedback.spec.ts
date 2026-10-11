@@ -1,13 +1,43 @@
 import { test, expect, go, row } from './demo';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 const task=(page:Page,id:string)=>page.locator(`.screen.active [data-task-id="${id}"]`);
+/* Where a box is once it has stopped moving: after a drop the list re-renders
+   and rows slide to their new places, and a box read mid-slide sends the
+   pointer to where the row was. */
+async function settledBox(locator:Locator){
+ let last='';let box=null as Awaited<ReturnType<Locator['boundingBox']>>;
+ await expect.poll(async()=>{box=await locator.boundingBox();const now=JSON.stringify(box);const still=box!==null&&now===last;last=now;return still;},{intervals:[100]}).toBe(true);
+ return box!;
+}
+/* Waits on what the page shows rather than on the clock: the rows have to have
+   stopped moving before they are measured (the target once the drag has
+   started, as starting one opens room above the list), the target row has to
+   show the drop it is about to take (inside it, or on the intended side of
+   it) before release, and the drag has to be over before the next one starts.
+   Fixed pauses made this fail whenever the machine was busy. */
 async function drop(page:Page,fromId:string,toId:string,position:'above'|'below'='below',indent=false){
- await page.waitForTimeout(350);const from=task(page,fromId);await from.hover();const a=(await from.locator('.drag').boundingBox())!;
+ await expect(page.locator('.screen.active .task.dragging')).toHaveCount(0);
+ const from=task(page,fromId),target=task(page,toId);
+ await from.hover();const a=await settledBox(from.locator('.drag'));
  await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();await page.mouse.move(a.x+4,a.y+18,{steps:5});
- const b=(await task(page,toId).boundingBox())!;await page.mouse.move(a.x+a.width/2+(indent?60:0),b.y+b.height*(position==='below'?.8:.2),{steps:12});await page.waitForTimeout(150);await page.mouse.up();
+ await expect(page.locator('.screen.active .task.dragging')).toHaveCount(1);
+ /* Aimed at where the target is now, and again if the rows shift under the
+    pointer, until the target shows it is the one being dropped on. */
+ let steps=12;
+ await expect(async()=>{
+  const b=await settledBox(target);await page.mouse.move(a.x+a.width/2+(indent?60:0),b.y+b.height*(position==='below'?.8:.2),{steps});steps=3;
+  await expect(target).toHaveClass(indent?/\bnesttarget\b/:/\b(landing|nesttarget)\b/,{timeout:1000});
+ }).toPass();
+ if(position==='above')await expect(target).toHaveClass(/\blanding-before\b/);else await expect(target).not.toHaveClass(/\blanding-before\b/);
+ await page.mouse.up();await expect(page.locator('.screen.active .task.dragging')).toHaveCount(0);
 }
 test('new subtasks follow the upper and lower drop position; nested child can drop just below its parent',async({demo:page})=>{
- await go(page,'#/project/site');const roots=await page.locator('.screen.active [data-task-id]:not([data-depth])').evaluateAll(nodes=>nodes.map(n=>(n as HTMLElement).dataset.taskId!));
+ test.slow(); // six drags, each waiting for the rows to settle
+ /* Tall enough that the whole project fits: a drop near the bottom edge
+    scrolls the list under the pointer, and the page scrolls itself to the top
+    on arriving, at a moment of its own choosing. Neither is what this tests. */
+ await page.setViewportSize({width:1280,height:1100});
+ await go(page,'#/project/site');await expect(page.locator('.screen.active').getByRole('heading',{name:'Website'})).toBeVisible();const roots=await page.locator('.screen.active [data-task-id]:not([data-depth])').evaluateAll(nodes=>nodes.map(n=>(n as HTMLElement).dataset.taskId!));
  const [parent,a,b]=roots;await drop(page,a,parent,'below',true);await expect(task(page,a)).toHaveAttribute('data-depth','1');
  await drop(page,b,a,'below');await expect(task(page,b)).toHaveAttribute('data-depth','1');
  let all=await page.locator('.screen.active [data-task-id]').evaluateAll(nodes=>nodes.map(n=>(n as HTMLElement).dataset.taskId));expect(all.indexOf(b)).toBeGreaterThan(all.indexOf(a));
