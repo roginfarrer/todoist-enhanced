@@ -31,3 +31,50 @@ and the file's `client_id` should then start with that address. If it answers wi
 `oauth/` folder was not uploaded and Todoist replies `invalid_client`. The
 fourth checks that `.htaccess` is in place; without it the app still works,
 without its Content-Security-Policy.
+
+## Cloudflare Pages, for one person
+
+A copy only you can open: Cloudflare Pages hosts it and Cloudflare Access puts
+a login in front of it. Both are free. Your tasks were never on the server
+anyway — they stay in Todoist and in your browser — so this is about who can
+use the app, not who can read your data.
+
+**Hosting.** In the Cloudflare dashboard, Workers & Pages → Create → Pages →
+connect this repository, then:
+
+- Build command: `PUBLIC_URL=https://<project>.pages.dev/ npm run build`
+  (your own domain instead, if you add one; keep the trailing `/`)
+- Build output directory: `dist`
+
+Node comes from `.nvmrc`. Every push to the production branch redeploys.
+`.htaccess` does nothing here; the build also writes `_headers`, which gives
+Pages the same Content-Security-Policy and caching, and Pages already answers
+unknown paths with `index.html`. Leave Cloudflare's script injections off
+(Web Analytics' automatic setup, Email Obfuscation, Rocket Loader): the policy
+blocks inline scripts, so they would fail, and noisily.
+
+**The login.** Zero Trust → Access → Applications → Add → Self-hosted:
+
+1. One application for the whole domain, with an **Allow** policy whose
+   Include rule is *Emails* → your address. Anyone else meets a login page
+   they cannot get past.
+2. A second one for the same domain with the path `oauth/client.json`, with a
+   **Bypass** policy for *Everyone*. "Continue with Todoist" works by Todoist's
+   servers fetching that file, and they cannot sign in to Cloudflare. It only
+   names the app and the addresses Todoist may return to, so it is harmless to
+   leave public. The more specific path wins over the first application.
+
+Skip the second step if you would rather sign in with an API token (Todoist
+Settings → Integrations → Developer); then nothing is public at all.
+
+Installing the app still works behind the login: the manifest is requested
+with cookies (`useCredentials` in `vite.config.ts`), so it is not turned away.
+Preview deployments (`<hash>.<project>.pages.dev`) are a different address, so
+protect `*.<project>.pages.dev` too, or turn previews off.
+
+Check it from a private window and from the command line:
+
+```bash
+curl -sI https://<host>/ | head -1                                    # 302, to the Access login
+curl -s https://<host>/oauth/client.json | head -c 40                 # {"client_id"… (if bypassed)
+```
