@@ -7,9 +7,10 @@ import { fileURLToPath, URL } from 'node:url';
  * The security headers the host sends, from public/.htaccess.
  *
  * Apache applies them in production. `npm run preview` applies the same ones
- * here so a build can be checked against the policy before it is uploaded,
- * and the built page carries the policy itself as well (contentSecurityMeta).
- * Keep the two in step.
+ * here so a build can be checked against the policy before it is uploaded.
+ * Keep the two in step. Cloudflare Pages gets them from `_headers`, which the
+ * build writes from this list, and the built page carries the policy itself
+ * as well (contentSecurityMeta).
  */
 const SECURITY_HEADERS = {
   'Content-Security-Policy': [
@@ -34,9 +35,10 @@ const SECURITY_HEADERS = {
 
 /**
  * The same Content-Security-Policy as a `<meta>` tag in the built page, so a
- * copy served by a host that ignores .htaccess (Netlify, GitHub Pages, a
- * plain static server) is still covered. `frame-ancestors` is dropped: browsers
- * ignore it in a meta tag, and the header keeps it where Apache sends it.
+ * copy served by a host that reads neither .htaccess nor _headers (Netlify,
+ * GitHub Pages, a plain static server) is still covered. `frame-ancestors` is
+ * dropped: browsers ignore it in a meta tag, and the headers keep it where
+ * the host sends them.
  * Build only: the dev server injects an inline script for React's hot reload,
  * which this policy would refuse.
  */
@@ -51,6 +53,28 @@ function contentSecurityMeta(policy: string): Plugin {
       const charset = '<meta charset="utf-8" />';
       if (!html.includes(charset)) throw new Error('index.html: no charset meta to put the Content-Security-Policy after');
       return html.replace(charset, `${charset}\n    <meta http-equiv="Content-Security-Policy" content="${content}" />`);
+    },
+  };
+}
+
+/**
+ * `_headers`, the same policy for Cloudflare Pages, which ignores `.htaccess`.
+ *
+ * Written from SECURITY_HEADERS rather than by hand, so the two cannot drift.
+ * The files without a hash in their name are revalidated on every load, as
+ * `.htaccess` does, or a new build sits behind the old one. Apache serves it
+ * as an ordinary file; there is nothing secret in it.
+ */
+function cloudflareHeaders(): Plugin {
+  const all = Object.entries(SECURITY_HEADERS).map(([name, value]) => `  ${name}: ${value}`);
+  const fresh = ['/sw.js', '/registerSW.js', '/theme-boot.js', '/manifest.webmanifest']
+    .map((path) => `${path}\n  Cache-Control: no-cache, must-revalidate`);
+  const body = [`/*\n${all.join('\n')}`, ...fresh].join('\n\n') + '\n';
+  return {
+    name: 'cloudflare-headers',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: '_headers', source: body });
     },
   };
 }
@@ -127,8 +151,13 @@ export default defineConfig({
     react(),
     contentSecurityMeta(SECURITY_HEADERS['Content-Security-Policy']),
     oauthClientDocument(PUBLIC_URL),
+    cloudflareHeaders(),
     VitePWA({
       registerType: 'autoUpdate',
+      /* The manifest is fetched with cookies. Behind a login such as
+         Cloudflare Access (docs/deploying.md) a request without them gets the
+         login page instead, and the app silently stops offering to install. */
+      useCredentials: true,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       /* The service worker is a build artefact only. The plugin can serve a
          development one, but under this app's relative `base` it fails to
