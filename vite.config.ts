@@ -8,7 +8,8 @@ import { fileURLToPath, URL } from 'node:url';
  *
  * Apache applies them in production. `npm run preview` applies the same ones
  * here so a build can be checked against the policy before it is uploaded.
- * Keep the two in step.
+ * Keep the two in step. Cloudflare Pages gets them from `_headers`, which the
+ * build writes from this list.
  */
 const SECURITY_HEADERS = {
   'Content-Security-Policy': [
@@ -30,6 +31,28 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
 };
+
+/**
+ * `_headers`, the same policy for Cloudflare Pages, which ignores `.htaccess`.
+ *
+ * Written from SECURITY_HEADERS rather than by hand, so the two cannot drift.
+ * The files without a hash in their name are revalidated on every load, as
+ * `.htaccess` does, or a new build sits behind the old one. Apache serves it
+ * as an ordinary file; there is nothing secret in it.
+ */
+function cloudflareHeaders(): Plugin {
+  const all = Object.entries(SECURITY_HEADERS).map(([name, value]) => `  ${name}: ${value}`);
+  const fresh = ['/sw.js', '/registerSW.js', '/theme-boot.js', '/manifest.webmanifest']
+    .map((path) => `${path}\n  Cache-Control: no-cache, must-revalidate`);
+  const body = [`/*\n${all.join('\n')}`, ...fresh].join('\n\n') + '\n';
+  return {
+    name: 'cloudflare-headers',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: '_headers', source: body });
+    },
+  };
+}
 
 /**
  * Where this copy of the app is served from, ending with `/`.
@@ -102,8 +125,13 @@ export default defineConfig({
   plugins: [
     react(),
     oauthClientDocument(PUBLIC_URL),
+    cloudflareHeaders(),
     VitePWA({
       registerType: 'autoUpdate',
+      /* The manifest is fetched with cookies. Behind a login such as
+         Cloudflare Access (docs/deploying.md) a request without them gets the
+         login page instead, and the app silently stops offering to install. */
+      useCredentials: true,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       /* The service worker is a build artefact only. The plugin can serve a
          development one, but under this app's relative `base` it fails to
