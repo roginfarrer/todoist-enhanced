@@ -53,6 +53,7 @@ export function FilterTitle({ filter }: { filter: Filter }) {
         {iconOpen && (
           <div className="popover ptitle-icons" role="dialog" aria-label={t('project.icon')}>
             <ProjectIconGrid
+              focusSearch
               value={readProjectIcon(filter.description)}
               onPick={(iconId) => {
                 void updateFilter(filter.id, {

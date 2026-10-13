@@ -2,12 +2,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Overlay } from './Overlay';
 import { Icon } from '../Icon';
 import { Select } from '../Select';
+import { AccessChoice } from '../AccessChoice';
 import { ProjectIcon, ProjectIconGrid } from '../ProjectIconPicker';
 import { useT } from '@/hooks/useT';
 import { useStore } from '@/store/store';
 import { colorValue, markerStyle } from '@/domain/colors';
 import { readProjectIcon, stripProjectIcon, withProjectIcon } from '@/domain/projectIcons';
 import { parentChoices } from '@/domain/projectParents';
+import { accessChoices, accessOf, defaultAccess } from '@/domain/projectAccess';
 import type { TranslationKey } from '@/i18n';
 
 /** Todoist's own project palette, in Todoist's own order. */
@@ -74,6 +76,8 @@ export function ProjectSheet({ target, onClose }: ProjectSheetProps) {
   const [iconOpen, setIconOpen] = useState(false);
   /** How the project opens. Enhanced keeps its own mode per project; Todoist's `view_style` follows it. */
   const [view, setView] = useState<'list' | 'board'>('list');
+  /** Who can reach it: restricted, team or public (or a value Todoist added that we do not know). */
+  const [access, setAccess] = useState('restricted');
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   const workspaces = useMemo(
@@ -94,6 +98,7 @@ export function ProjectSheet({ target, onClose }: ProjectSheetProps) {
       setFavourite(project?.is_favorite ?? false);
       setDestination(project?.workspace_id ?? PERSONAL);
       setParent(project?.parent_id ?? '');
+      setAccess(accessOf(project, project?.workspace_id ? snapshot.workspaces[project.workspace_id] : null));
       /* Enhanced's own choice wins; before one is made, Todoist's decides. */
       const own = prefs.views[`project:${target.projectId}`]?.mode;
       setView(own === 'board' || own === 'list' ? own : project?.view_style === 'board' ? 'board' : 'list');
@@ -106,6 +111,7 @@ export function ProjectSheet({ target, onClose }: ProjectSheetProps) {
     setIcon(null);
     setFavourite(false);
     setDestination(target.workspaceId ?? PERSONAL);
+    setAccess(defaultAccess(target.workspaceId ? snapshot.workspaces[target.workspaceId] : null));
     // Added next to a project, it starts in that project's branch.
     setParent((target.anchor && snapshot.projects[target.anchor.siblingId]?.parent_id) || '');
     setView('list');
@@ -139,6 +145,16 @@ export function ProjectSheet({ target, onClose }: ProjectSheetProps) {
     [parents, snapshot.projects, t],
   );
 
+  /* Where the project already is decides whether a changed destination hides
+     the choice: a project that moves takes the default of its new place, and
+     the choice is made again afterwards. */
+  const movedSpace = target?.mode === 'edit' && (editing?.workspace_id ?? null) !== workspaceId;
+  const accessOptions = useMemo(() => {
+    const levels: string[] = accessChoices(workspaceId !== null);
+    // A value this app does not know is kept and shown as it comes, not dropped.
+    return levels.includes(access) ? levels : [...levels, access];
+  }, [workspaceId, access]);
+
   /* The description grows with what is typed, so it reads as a line of the
      card until there is more than a line to say. */
   useLayoutEffect(() => {
@@ -158,15 +174,17 @@ export function ProjectSheet({ target, onClose }: ProjectSheetProps) {
     const finalDescription = withProjectIcon(description, icon);
 
     if (target.mode === 'edit') {
+      const wasIn = editing?.workspace_id ? snapshot.workspaces[editing.workspace_id] : null;
       await updateProjectFields(target.projectId, {
         name: name.trim(),
         color,
         description: finalDescription,
         is_favorite: favourite,
         view_style: view,
+        // Only when it was changed here: an existing project is not rewritten by saving something else.
+        ...(!movedSpace && access !== accessOf(editing, wasIn) ? { access: { visibility: access } } : {}),
       });
       setViewPrefs(`project:${target.projectId}`, { mode: view });
-      const movedSpace = (editing?.workspace_id ?? null) !== (destination === PERSONAL ? null : destination);
       if (movedSpace) await moveProjectToWorkspace(target.projectId, destination === PERSONAL ? null : destination);
       else if (parent !== (editing?.parent_id ?? '')) await nestProject(target.projectId, parent || null);
     } else {
@@ -175,7 +193,11 @@ export function ProjectSheet({ target, onClose }: ProjectSheetProps) {
         color,
         destination === PERSONAL ? null : destination,
         target.anchor ?? null,
-        { description: finalDescription, favourite, parentId: parent || null, viewStyle: view },
+        {
+          description: finalDescription, favourite, parentId: parent || null, viewStyle: view,
+          // Left out when it is what Todoist would give anyway, so a refusal of Public never costs a plain project.
+          ...(access !== defaultAccess(workspaceId ? snapshot.workspaces[workspaceId] : null) ? { access } : {}),
+        },
       );
       if (view !== 'list') setViewPrefs(`project:${id}`, { mode: view });
       target.onCreated?.(id);
@@ -290,7 +312,15 @@ export function ProjectSheet({ target, onClose }: ProjectSheetProps) {
                 value={destination}
                 options={destinations}
                 ariaLabel={t('project.workspace')}
-                onChange={(next) => { setDestination(next); setParent(''); }}
+                onChange={(next) => {
+                  setDestination(next);
+                  setParent('');
+                  // What can be chosen depends on where it lives, so the choice starts again from that place's default,
+                  // or from what the project has when it is put back where it was.
+                  const space = next === PERSONAL ? null : snapshot.workspaces[next];
+                  setAccess(editing && (editing.workspace_id ?? null) === (space?.id ?? null)
+                    ? accessOf(editing, space) : defaultAccess(space));
+                }}
               />
             </div>
           )}
@@ -304,6 +334,19 @@ export function ProjectSheet({ target, onClose }: ProjectSheetProps) {
             />
           </div>
         </div>
+
+        {!movedSpace && (
+          <div className="formfield">
+            <span className="fieldlabel" id="project-access">{t('project.access')}</span>
+            <AccessChoice
+              levels={accessOptions}
+              value={access}
+              onChange={setAccess}
+              workspace={workspaceId ? snapshot.workspaces[workspaceId] ?? null : null}
+              labelledBy="project-access"
+            />
+          </div>
+        )}
 
         <div className="formfield">
           <span className="fieldlabel" id="project-view">{t('project.view')}</span>

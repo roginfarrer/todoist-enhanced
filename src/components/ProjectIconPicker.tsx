@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { useT } from '@/hooks/useT';
 import { matchesSearch } from '@/domain/search';
@@ -18,6 +18,8 @@ export function ProjectIcon({
 interface ProjectIconGridProps {
   value: string | null;
   onPick: (iconId: string | null) => void;
+  /** Puts the cursor in the search field on mount: for a picker opened by a click, which would otherwise leave typing to the page's shortcuts (#211). */
+  focusSearch?: boolean;
 }
 
 /**
@@ -32,10 +34,17 @@ interface ProjectIconGridProps {
  * forward one — which is what typing a search down to a handful of results
  * and then arrowing through them actually needs.
  */
-export function ProjectIconGrid({ value, onPick }: ProjectIconGridProps) {
+export function ProjectIconGrid({ value, onPick, focusSearch }: ProjectIconGridProps) {
   const { t } = useT();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(-1);
+  const search = useRef<HTMLInputElement>(null);
+  /* After the click that opened it has finished, or the button keeps the focus. */
+  useEffect(() => {
+    if (!focusSearch) return;
+    const id = window.setTimeout(() => search.current?.focus(), 0);
+    return () => window.clearTimeout(id);
+  }, [focusSearch]);
 
   const matches = PROJECT_ICON_IDS.filter((id) => {
     const words = [id.replace(/-/g, ' '), ...(PROJECT_ICON_SYNONYMS[id] ?? [])];
@@ -47,6 +56,7 @@ export function ProjectIconGrid({ value, onPick }: ProjectIconGridProps) {
       <div className="pickersearch">
         <Icon name="search" size="sm" />
         <input
+          ref={search}
           value={query}
           placeholder={t('nav.search')}
           aria-label={t('project.icon')}

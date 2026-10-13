@@ -1,3 +1,4 @@
+import { HireNote } from '@/components/HireNote';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { Icon } from '@/components/Icon';
@@ -451,6 +452,7 @@ export function InsightsView({ onOpen }: { onOpen?: (id: string) => void }) {
           )}
         </div>
       </div>
+      <HireNote />
 
       <div className="viewbar periodbar">
         <span className="pager">

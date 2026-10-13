@@ -1309,6 +1309,103 @@
 .bulkpop:has(.datepicker){width:288px}
 .datepicker .dateday{aspect-ratio:auto;height:32px}
 
+/* Time, Duration and Repeat at the foot of the picker (#202): one
+   full-width line each under the choices or the month, the value on the
+   right once set, with a cross that keeps the value's colour. */
+.datepicker-foot{display:grid;gap:1px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
+.pickerrow{display:flex;align-items:center;min-width:0;border-radius:var(--r-sm)}
+.pickerrow:hover{background:var(--hover)}
+.datepicker .pickerrow button.pickerrow-open{flex:1;min-width:0}
+.datepicker .pickerrow button.pickerrow-open:hover{background:transparent}
+.datepicker .pickerrow button.pickerrow-open > span{flex:0 0 auto}
+.datepicker .pickerrow.set button.pickerrow-open small{min-width:0;color:var(--accent-dark);font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.pickerrow-clear{
+  display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:28px;height:28px;margin-right:2px;
+  padding:0;border:0;border-radius:var(--r-sm);background:transparent;color:var(--accent-dark);
+}
+.pickerrow-clear:hover,
+.pickerrow-clear:focus-visible{background:transparent;color:var(--accent)}
+.pickerrow-clear:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+.datepicker-sub{display:grid;gap:6px;min-width:0}
+
+/* "Back to the date" heads a sub-panel: a rule under it sets it apart from
+   the choices that follow. */
+.datepicker button.datepicker-back{position:relative;margin-bottom:9px}
+.datepicker button.datepicker-back::after{content:'';position:absolute;left:-4px;right:-4px;bottom:-5px;border-bottom:1px solid var(--border)}
+
+/* Time and Duration, Todoist's two fields: label on the left, the field on
+   the right, what fits listed under the field once something is typed. */
+.combo-row{display:grid;grid-template-columns:72px minmax(0, 1fr);align-items:center;gap:8px}
+.combo-row > label{color:var(--text);font-size:var(--fs-13);font-weight:600}
+.combo{position:relative;min-width:0}
+.combo input{
+  width:100%;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--text);font:inherit;font-size:var(--fs-13);
+}
+.combo input:focus{outline:none;border-color:var(--accent)}
+.combo input[aria-invalid="true"]{border-color:var(--late)}
+.combo-list{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:5;display:grid;gap:1px;
+  max-height:220px;overflow:auto;padding:4px;border:1px solid var(--border);border-radius:var(--r-sm);
+  background:var(--surface);box-shadow:var(--sh-md);
+}
+.combo-list button{min-height:30px;padding:0 8px;border:0;border-radius:calc(var(--r-sm) - 2px);background:transparent;color:var(--text);font-size:var(--fs-13);text-align:left}
+.combo-list button.active{background:var(--accent-soft);color:var(--accent-dark)}
+.datepicker-time{gap:8px;padding-top:2px}
+.datepicker-time .pickerreading{margin:-2px 0 0 80px}
+/* The app's own list, opened from the Custom repeat dialog, sits above it. */
+.repeatdialog-scrim ~ .popover.listbox{z-index:310}
+.repeat-every .fselect{min-width:150px}
+.datepicker .datepicker-options button.opt.on{color:var(--accent-dark)}
+.datepicker .datepicker-options button.opt.on .ic{color:var(--accent-dark)}
+
+/* Custom repeat (#202): Todoist's centred dialog, over the picker it came
+   from, which stays open behind it. */
+.repeatdialog-scrim{
+  position:fixed;inset:0;z-index:300;display:grid;justify-items:center;align-items:start;padding:min(14vh, 120px) 16px 16px;
+  background:var(--scrim, rgb(0 0 0 / .4));
+}
+.repeatdialog{
+  width:min(440px, 100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+  border-radius:var(--r-lg);background:var(--surface);color:var(--text);box-shadow:var(--sh-lg);overflow:hidden;
+}
+.repeatdialog-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:var(--s4) var(--s5);border-bottom:1px solid var(--border)}
+.repeatdialog-head h2{margin:0;font-size:var(--fs-16, 16px);font-weight:600}
+.repeatdialog-body{display:grid;gap:var(--s4);padding:var(--s4) var(--s5);overflow:auto}
+.repeatdialog-body fieldset{display:grid;gap:8px;margin:0;padding:0;border:0;min-width:0}
+.repeatdialog-body legend{margin-bottom:6px;padding:0;font-size:var(--fs-13);font-weight:600}
+.repeatdialog-foot{display:flex;justify-content:flex-end;gap:8px;padding:var(--s3) var(--s5) var(--s4);border-top:1px solid var(--border)}
+.repeat-radio{display:flex;align-items:center;gap:8px;font-size:var(--fs-13);cursor:pointer}
+.repeat-radio input{margin:0;accent-color:var(--accent)}
+.repeat-radio.off{opacity:.45;cursor:default}
+.repeat-every{display:flex;align-items:center;gap:8px}
+.repeat-every input{width:64px;height:32px;padding:0 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font:inherit;font-size:var(--fs-13)}
+.repeat-every input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.repeat-weekdays{display:grid;grid-template-columns:repeat(7, 1fr);gap:4px}
+.repeat-weekdays button{min-height:32px;padding:0;border:1px solid var(--border);border-radius:var(--r-full);background:transparent;color:var(--text);font-size:var(--fs-12)}
+.repeat-weekdays button.on{border-color:var(--accent);background:var(--accent);color:var(--on-accent, #fff)}
+.repeat-weekdays button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.repeat-choices{display:grid;gap:8px}
+.repeat-note{color:var(--faint);font-size:var(--fs-12);line-height:1.35}
+.repeatdialog .repeat-end{margin:0}
+.repeatdialog .pickerreading{display:flex;align-items:center;gap:6px;margin:0;font-size:var(--fs-12);color:var(--muted)}
+.repeatdialog .pickerreading.none{color:var(--late)}
+.repeatdialog .repeat-preview{padding:8px 10px;border-radius:var(--r-sm);background:var(--accent-tint);color:var(--accent-dark);font-size:var(--fs-13)}
+.repeatdialog .repeat-preview span{min-width:0;overflow-wrap:anywhere}
+.repeat-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:2px}
+
+/* A date chosen by typing in the picker hands the focus back without the
+   ring (#202): `.fselect-face:focus-visible` would otherwise outrank the
+   general `[data-pointer-focus]` rule. */
+.fselect-face[data-pointer-focus]:focus-visible{outline:none}
+
+/* The composer's repeat chip keeps its cross (#202). */
+.datefield.inchips:has(.chipclear){display:inline-flex;align-items:center}
+.datefield.inchips:has(.chipclear) .fselect-face{border-top-right-radius:0;border-bottom-right-radius:0;border-right:0}
+.chipclear{display:inline-flex;align-items:center;justify-content:center;align-self:stretch;padding:0 6px;border:1px solid var(--accent-line);border-left:0;border-radius:0 var(--r-full) var(--r-full) 0;background:var(--accent-tint);color:var(--accent-dark)}
+.chipclear:hover{background:var(--accent-tint);color:var(--accent)}
+
 /* Row menus are drawn into the document and placed against the row's
    buttons with fixed coordinates (#111), so no box the row sits in — a
    short board column, a short list — can clip one. */
@@ -1551,3 +1648,85 @@
 @media(max-width:480px){.estimate-toggle{flex-direction:column}.estimate-toggle button{min-height:56px}.conversion-list li{flex-wrap:wrap}.conversion-list li > small{margin-left:26px}}
 .estimate-recommended{display:inline-block;margin-left:6px;padding:2px 5px;border-radius:var(--r-sm);background:var(--accent-soft);color:var(--accent);font-size:var(--fs-11);font-weight:600}
 .create-tag-input{margin-top:8px}.create-tag-input .pickersearch{margin:0}
+
+/* ---------- A note for Todoist's own people (HireNote) ---------- */
+/* Laid out exactly like a task row: the tint reaches past the row's ends with
+   offset shadows, as a picked row does, so the check and the text stay on the
+   same lines as the tasks around it. */
+.task.hirenote{
+  background:var(--accent-soft);
+  border-bottom-color:transparent;
+  border-radius:var(--r-md,8px);
+  box-shadow:-10px 0 0 0 var(--accent-soft), 10px 0 0 0 var(--accent-soft);
+  cursor:pointer;
+}
+.task.hirenote:hover{background:var(--accent-soft)}
+.task.hirenote .ttitle{font-weight:600}
+.hiretag{
+  display:inline-flex;align-items:center;
+  padding:1px 7px;border-radius:var(--r-sm);
+  background:var(--surface);color:var(--accent);
+  font-size:var(--fs-11);white-space:nowrap;
+}
+.task.hirenote .trow-end{display:flex;align-items:center;gap:var(--s2,8px);visibility:visible}
+.hirecard{position:relative;border-radius:inherit;overflow:hidden;text-align:center}
+.hirecard-cover{height:96px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#000));position:relative}
+.hirecard-close{position:absolute;top:var(--s2,8px);right:var(--s2,8px);color:#fff}
+.hirecard-photo{display:block;width:88px;height:88px;border-radius:50%;object-fit:cover;margin:-44px auto 0;position:relative;border:4px solid var(--surface)}
+.hirecard-body{padding:var(--s3) var(--s5) var(--s5);display:grid;gap:var(--s2);justify-items:center}
+.hirecard-body h2{font-size:var(--fs-18,18px);font-weight:700;line-height:1.3}
+.hirecard-body p{color:var(--text);font-size:var(--fs-14);line-height:1.55;margin:var(--s2) 0;max-width:42ch;text-wrap:balance}
+.hirecard-links{display:flex;flex-wrap:wrap;gap:var(--s2);justify-content:center}
+.hirepill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:var(--hover);color:var(--muted);font-size:var(--fs-13);text-decoration:none}
+.hirepill-mail{gap:0}
+.hirepill a{display:inline-flex;align-items:center;gap:6px;color:inherit;text-decoration:none}
+.hirepill:hover{color:var(--text)}
+/* The copy button takes no room until the pill is hovered or focused. */
+.hirepill-copy{display:inline-flex;align-items:center;gap:4px;color:inherit;font-size:var(--fs-12,12px);overflow:hidden;max-width:0;padding:0;opacity:0;margin-left:0;transition:max-width .16s ease,opacity .16s ease,margin .16s ease,padding .16s ease}
+.hirepill-mail:hover .hirepill-copy,.hirepill-mail:has(:focus-visible) .hirepill-copy,.hirepill-copy.copied{max-width:90px;padding:2px 4px;opacity:1;margin-left:6px}
+@media (hover:none){.hirepill-copy{max-width:90px;padding:2px 4px;opacity:1;margin-left:6px}}
+@media (prefers-reduced-motion:reduce){.hirepill-copy{transition:none}}
+/* In a matrix quadrant a task is a card: the card carries the tint, the row does not paint past its ends. */
+.taskwrap > .task.hirenote,.taskwrap > .task.hirenote:hover{background:transparent;box-shadow:none;border-radius:0}
+
+/* In a matrix quadrant the card is white like the others, picked out by an accent edge: a tint would vanish on the quadrant's own colour. */
+.taskwrap:has(> .task.hirenote){background:var(--surface);box-shadow:inset 0 0 0 2px var(--accent)}
+
+/* The Mac app: a card in Settings, About, and one quiet line on the sign-in screen. */
+.macapp{display:grid;gap:var(--s2);padding:var(--s4) 0;border-top:1px solid var(--border)}
+.macapp-text strong{display:block;font-size:var(--fs-13);font-weight:600}
+.macapp-text span{display:block;margin-top:2px;max-width:60ch;color:var(--muted);font-size:var(--fs-12);line-height:1.5}
+.macapp-actions{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.macapp-help{margin:0;max-width:60ch;color:var(--muted);font-size:var(--fs-12);line-height:1.5}
+.macapp-help a,.macapp-line a{color:var(--accent);font-weight:600}
+.macapp-help a:hover,.macapp-line a:hover{text-decoration:underline}
+.macapp-line{margin:2px 0 0;text-align:center;color:var(--muted);font-size:var(--fs-12);line-height:1.5}
+html.desktop-app .macapp,html.desktop-app .macapp-line{display:none}
+.whatsnew-end{margin-left:auto}
+.macapp-steps{margin:0;padding-left:1.3em;max-width:60ch;color:var(--muted);font-size:var(--fs-12);line-height:1.55}
+.macapp-steps li{padding-left:2px}
+.macapp-steps li + li{margin-top:2px}
+
+/* Who can access a project: tall tiles, each with its icon, title and sentence (#194). */
+.accesschoice{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:8px}
+.accesstile{
+  display:flex;flex-direction:column;align-items:flex-start;gap:4px;
+  min-height:112px;padding:12px;border:1px solid var(--border-strong);border-radius:var(--r-lg);
+  background:var(--surface);color:var(--text);text-align:left;cursor:pointer;
+}
+.accesstile:hover{background:var(--hover)}
+.accesstile strong{font-size:var(--fs-13);font-weight:600}
+.accesstile > span:last-child{color:var(--muted);font-size:var(--fs-12);line-height:1.4;text-wrap:pretty}
+.accesstile[aria-checked="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.accessmark{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;margin-bottom:2px;color:var(--muted)}
+.accesstile[aria-checked="true"] .accessmark{color:var(--accent)}
+.accessmark img{width:24px;height:24px;border-radius:7px;object-fit:cover}
+
+/* The call-out under the Mac app button: it grows open like the icon picker does. */
+.macfold{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .38s cubic-bezier(.2,.8,.2,1),opacity .28s ease}
+.macfold.open{grid-template-rows:1fr;opacity:1}
+.macfold-in{overflow:hidden;min-height:0}
+.macfold:not(.open) .macfold-in{visibility:hidden;transition:visibility 0s .38s}
+.maccallout{display:grid;gap:var(--s3);margin-top:var(--s2);padding:var(--s4);border:1px solid var(--border-strong);border-radius:var(--r-lg);background:var(--subtle)}
+.maccallout > strong{font-size:var(--fs-13);font-weight:600}
+@media (prefers-reduced-motion:reduce){.macfold,.macfold-in{transition:none}}

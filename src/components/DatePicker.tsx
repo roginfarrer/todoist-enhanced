@@ -12,6 +12,13 @@ import {
 import { dateSuggestions, type DateSuggestion } from '@/domain/dateWords';
 import { readNaturalDate } from '@/domain/nlp';
 import { readRecurrence } from '@/domain/recurrence';
+import { formatDuration } from '@/domain/estimates';
+import {
+  buildRule, defaultRule, firstDayOfRule, firstOccurrence, ruleFromString, ruleWithTime, startOf, timeOf, type RepeatRule,
+} from '@/domain/repeatRule';
+import {
+  ClockPanel, DurationPanel, RepeatDialog, RepeatPresets, type DurationControl,
+} from './DatePickerPanels';
 
 /** A quick choice under the typed field: a day, or one of the app's own places. */
 export interface DateShortcut {
@@ -25,13 +32,30 @@ export interface DateShortcut {
 }
 
 /** What a typed repeat rule is handed on as. */
-export type RecurrenceReading = NonNullable<ReturnType<typeof readRecurrence>>;
+export type RecurrenceReading = NonNullable<ReturnType<typeof readRecurrence>> & {
+  /**
+   * The first day it lands on, with its time, when a rule built in the Repeat
+   * panel makes that plain (#202): the composer's chip then says "Today" with
+   * the repeat mark, as Todoist does, rather than the rule's words.
+   */
+  first?: string;
+  /**
+   * The date to send with the rule to a task that already has one: the first
+   * day for a new rule, the occurrence it is on for a time change. Without
+   * it Todoist counts from the task's date and skips it (see setRecurrence).
+   */
+  date?: string;
+};
 
 interface DatePickerProps {
   /** An API date string, or empty for no date. */
   value: string;
-  /** A day was chosen — typed, suggested, a date shortcut or the calendar. */
-  onPick: (iso: string) => void;
+  /**
+   * A day was chosen — typed, suggested, a date shortcut, the calendar or the
+   * Time panel. `clearTime` says the time was taken off on purpose: a caller
+   * that keeps a task's time when only its day changes must not put it back.
+   */
+  onPick: (iso: string, how?: { clearTime?: boolean }) => void;
   /** The accessible name of the whole picker. */
   label: string;
   /**
@@ -41,8 +65,23 @@ interface DatePickerProps {
    * someday) — the same lines, in the same order, wherever they appear.
    */
   shortcuts?: DateShortcut[];
-  /** A repeat rule typed in the field ("every monday"), where one can be set. */
+  /**
+   * A repeat rule, typed in the field ("every monday") or built in the Repeat
+   * panel (#202), where one can be set. Its being there is what shows Repeat.
+   */
   onRecurrence?: (rule: RecurrenceReading) => void;
+  /** The rule the date already has, so Repeat opens on it and Time edits its time. */
+  recurrence?: { string: string; lang: string; first?: string } | null;
+  /** "Stop repeating", from the Repeat panel or the cross on its chip. */
+  onClearRecurrence?: () => void;
+  /**
+   * Whether Time sits at the foot of the picker. On by default wherever a time
+   * can be kept; the bulk bar turns it off, because one time given to tasks on
+   * different days would also move them all to the same day.
+   */
+  timeButton?: boolean;
+  /** The task's duration (its estimate), on its own line beside Time (#202). */
+  duration?: DurationControl;
   /** The earliest and latest days that can be chosen, as API date strings. */
   min?: string;
   max?: string;
@@ -89,7 +128,8 @@ interface DatePickerProps {
  */
 export function DatePicker({
   value, onPick, label, shortcuts, onRecurrence, min, max, footer, onEscape,
-  autoFocus = true, withTime = false,
+  autoFocus = true, withTime = false, recurrence = null, onClearRecurrence, timeButton = withTime,
+  duration: durationProp,
 }: DatePickerProps) {
   const { t, locale } = useT();
   const dateFormat = useStore((s) => s.prefs.dateFormat);
@@ -100,9 +140,14 @@ export function DatePicker({
   const [cursor, setCursor] = useState(() => startOfDay(selected ?? new Date()));
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(-1);
-  /* The choices, or the month in their place. */
-  const [view, setView] = useState<'choices' | 'month'>('choices');
+  /* The choices, or the month, the time or the repeat in their place. */
+  const [view, setView] = useState<'choices' | 'month' | 'time' | 'duration' | 'repeat'>('choices');
   const pickRef = useRef<HTMLButtonElement>(null);
+  const timeRef = useRef<HTMLButtonElement>(null);
+  const repeatRef = useRef<HTMLButtonElement>(null);
+  const durationRef = useRef<HTMLButtonElement>(null);
+  /* Which foot button takes the focus back once its panel closes. */
+  const returnTo = useRef<'pick' | 'time' | 'duration' | 'repeat'>('pick');
   const fieldRef = useRef<HTMLInputElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -123,7 +168,7 @@ export function DatePicker({
   useLayoutEffect(() => {
     if (focusPick.current && view === 'choices') {
       focusPick.current = false;
-      pickRef.current?.focus();
+      ({ pick: pickRef, time: timeRef, duration: durationRef, repeat: repeatRef })[returnTo.current].current?.focus();
     }
     if (!focusCursor.current) return;
     const day = gridRef.current?.querySelector<HTMLElement>('[tabindex="0"]');
@@ -133,7 +178,11 @@ export function DatePicker({
   });
 
   const today = startOfDay(new Date());
-  const pickDay = (day: Date) => { if (!outOfRange(day)) onPick(toApiDate(day)); };
+  /* A new day keeps the time the date already had (#202): "Tomorrow" on
+     "today 12:00" is tomorrow 12:00, not tomorrow with the time gone. A day
+     typed with its own time ("friday 9am") still brings its own. */
+  const withDayTime = (day: string): string => (withTime && time ? `${day}T${time}:00` : day);
+  const pickDay = (day: Date) => { if (!outOfRange(day)) onPick(withDayTime(toApiDate(day))); };
   const dayHint = (day: Date) => shortDay(day, locale);
 
   const choices: DateShortcut[] = shortcuts ?? [
@@ -169,7 +218,7 @@ export function DatePicker({
     }
     const day = reading ? parse(reading.date) : null;
     if (!reading || !day || outOfRange(day)) return;
-    onPick(withTime && reading.hasTime ? reading.date : toApiDate(day));
+    onPick(withTime && reading.hasTime ? reading.date : withDayTime(toApiDate(day)));
   }
 
   /* Six weeks from the week's first day on or before the first: always the same number
@@ -203,7 +252,59 @@ export function DatePicker({
      drawn, in the same frame: through a timer there was a moment with the
      focus on nothing, and a second Escape landed on the page behind. */
   const focusPick = useRef(false);
-  const closeMonth = () => { focusPick.current = true; setView('choices'); };
+  const closeMonth = () => { returnTo.current = 'pick'; focusPick.current = true; setView('choices'); };
+  const closeSub = () => {
+    returnTo.current = view === 'time' || view === 'duration' || view === 'repeat' ? view : 'pick';
+    focusPick.current = true;
+    setView('choices');
+  };
+
+  /* Time and Repeat (#202). A task that repeats keeps its time in its rule
+     ("every mon at 9:15"), so there the time is read from the rule and changed
+     by rewriting it: the date beside it can still carry the time it had before
+     the rule was set (the composer keeps it), and reading that one is how
+     "remove time" seemed to do nothing. Anywhere else the time goes on the day
+     the picker is on, or today. */
+  const readRuleTime = recurrence ? ruleFromString(recurrence.string) : null;
+  const time = readRuleTime ? readRuleTime.time : timeOf(value);
+  const ruleLang = (recurrence?.lang === 'fr' ? 'fr' : recurrence ? 'en' : locale) as 'en' | 'fr';
+  const start = startOf(value);
+  const setTime = (next: string | null) => {
+    if (recurrence && onRecurrence) {
+      const string = ruleWithTime(recurrence.string, ruleLang, next);
+      /* The day it starts on follows, so the chip does not keep the old time. */
+      const first = firstDayOfRule(string, recurrence.first ?? (value || null)) ?? undefined;
+      const date = value ? `${value.slice(0, 10)}${next ? `T${next}:00` : ''}` : undefined;
+      onRecurrence({ matched: string, index: 0, string, lang: ruleLang, fromCompletion: string.includes('!'), first, date });
+      return;
+    }
+    /* A time given to a date that has no day yet goes on the next time it
+       comes round: 12:00 asked for at 21:20 is tomorrow, as in Todoist. A day
+       that was chosen, today included, is kept as chosen. */
+    const now = new Date();
+    const passed = next !== null && next <= `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+    const day = toApiDate(!value && passed ? addDays(start, 1) : start);
+    if (next) onPick(`${day}T${next}:00`);
+    else onPick(day, { clearTime: true });
+  };
+  const [custom, setCustom] = useState(false);
+  const readRule = recurrence ? ruleFromString(recurrence.string) : null;
+  const initialRule: RepeatRule = readRule ?? defaultRule(start, time);
+  /* A rule given to a task that is late starts from today, not from the day
+     it was missed: sending that day would keep it late. A monthly or yearly
+     rule is anchored on that past day, so its first day is left to Todoist. */
+  const applyRule = (rule: RepeatRule) => {
+    const late = start < today;
+    const day = late && (rule.unit === 'month' || rule.unit === 'year')
+      ? null
+      : firstOccurrence(rule, late ? today : start);
+    const first = day ? `${toApiDate(day)}${rule.time ? `T${rule.time}:00` : ''}` : undefined;
+    onRecurrence?.({ ...buildRule(rule, locale, start), first, date: first });
+  };
+  const showTime = timeButton && withTime;
+  const showRepeat = onRecurrence !== undefined;
+  /* Duration sits with Time: where a time can be set, and its context has one. */
+  const durationShown = timeButton && withTime ? durationProp : undefined;
 
   const optionButtons = () =>
     [...(optionsRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])];
@@ -259,10 +360,16 @@ export function DatePicker({
       aria-label={label}
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return;
-        if (view === 'month') {
+        if (custom) {
+          /* The custom dialog goes first, back to the presets behind it. */
           event.preventDefault();
           event.stopPropagation();
-          closeMonth();
+          setCustom(false);
+        } else if (view !== 'choices') {
+          /* Escape closes the panel it is pressed in, never the picker. */
+          event.preventDefault();
+          event.stopPropagation();
+          closeSub();
         } else if (onEscape) {
           event.preventDefault();
           event.stopPropagation();
@@ -270,6 +377,7 @@ export function DatePicker({
         }
       }}
     >
+      {(view === 'choices' || view === 'month') && (<>
       <div className="pickersearch datepicker-field">
         <Icon name="calendar" size="sm" />
         <input
@@ -343,6 +451,7 @@ export function DatePicker({
           </p>
         )
       )}
+      </>)}
 
       {view === 'choices' && (
         <div className="datepicker-options" ref={optionsRef} onKeyDown={onOptionsKey}>
@@ -422,6 +531,139 @@ export function DatePicker({
           })}
         </div>
       </div>
+      )}
+
+      {(view === 'time' || view === 'duration' || view === 'repeat') && (
+        <button type="button" className="opt datepicker-back" onClick={closeSub}>
+          <span><Icon name="arrow-left" size="sm" /> {t('date.backToDate')}</span>
+        </button>
+      )}
+      {view === 'time' && (
+        <ClockPanel current={time} onApply={setTime} onClear={() => setTime(null)} />
+      )}
+      {view === 'duration' && durationShown && (
+        <DurationPanel
+          current={durationShown.minutes}
+          onApply={(minutes) => { durationShown.onChange(minutes); closeSub(); }}
+        />
+      )}
+      {view === 'repeat' && (
+        <RepeatPresets
+          start={start}
+          time={time}
+          current={recurrence?.string ?? null}
+          onApply={applyRule}
+          onCustom={() => setCustom(true)}
+          onStop={recurrence ? onClearRecurrence : undefined}
+        />
+      )}
+      {view === 'repeat' && custom && (
+        <RepeatDialog
+          start={start}
+          initial={initialRule}
+          replaces={recurrence && !readRule ? recurrence.string : null}
+          onApply={(rule) => { setCustom(false); applyRule(rule); }}
+          onCancel={() => setCustom(false)}
+        />
+      )}
+
+      {/* Time, Duration and Repeat, one full-width line each (#202): what
+          each adds while it is empty, then its value on the right with a
+          cross to take it off. */}
+      {(view === 'choices' || view === 'month') && (showTime || durationShown || showRepeat) && (
+        <div className="datepicker-foot">
+          {showTime && (
+            <FootRow
+              buttonRef={timeRef}
+              icon="clock"
+              label={t('date.time')}
+              value={time ? formatTime(atTime(time), locale, hour12) : null}
+              clearLabel={t('date.removeTime')}
+              onOpen={() => setView('time')}
+              onClear={() => setTime(null)}
+            />
+          )}
+          {durationShown && (
+            <FootRow
+              buttonRef={durationRef}
+              icon="sliders"
+              label={t('date.duration')}
+              value={durationShown.minutes ? formatDuration(durationShown.minutes, locale) : null}
+              clearLabel={t('date.removeDuration')}
+              onOpen={() => setView('duration')}
+              onClear={() => durationShown.onChange(null)}
+            />
+          )}
+          {showRepeat && (
+            <FootRow
+              buttonRef={repeatRef}
+              icon="repeat"
+              label={t('date.repeat')}
+              /* Without "starting …": Todoist drops it once read, and the day is above. */
+              value={recurrence ? recurrence.string.replace(/\s+(?:starting|à partir du)\s+\S+/i, '') : null}
+              clearLabel={t('date.removeRepeat')}
+              onOpen={() => setView('repeat')}
+              onClear={onClearRecurrence}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+const atTime = (time: string): Date => {
+  const [h, m] = time.split(':').map(Number);
+  const at = new Date();
+  at.setHours(h, m, 0, 0);
+  return at;
+};
+
+/**
+ * Time, Duration or Repeat at the foot of the picker: a full-width line
+ * saying what it adds, then, once set, its value on the right and a cross to
+ * take it off. The cross keeps the line's colour when hovered: it is part of
+ * the value, not a grey button laid on it.
+ */
+function FootRow({ buttonRef, icon, label, value, clearLabel, onOpen, onClear }: {
+  buttonRef: React.RefObject<HTMLButtonElement>;
+  icon: IconName;
+  label: string;
+  value: string | null;
+  clearLabel: string;
+  onOpen: () => void;
+  onClear?: () => void;
+}) {
+  const keep = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
+  };
+  return (
+    <div className={`pickerrow${value ? ' set' : ''}`}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="opt pickerrow-open"
+        aria-haspopup="dialog"
+        aria-label={value ? `${label}: ${value}` : label}
+        onClick={onOpen}
+        onKeyDown={keep}
+      >
+        <span><Icon name={icon} size="sm" /> {label}</span>
+        {value && <small title={value}>{value}</small>}
+      </button>
+      {value && onClear && (
+        <button
+          type="button"
+          className="pickerrow-clear"
+          aria-label={clearLabel}
+          title={clearLabel}
+          onClick={onClear}
+          onKeyDown={keep}
+        >
+          <Icon name="close" size="sm" />
+        </button>
       )}
     </div>
   );

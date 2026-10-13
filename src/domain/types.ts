@@ -74,6 +74,11 @@ export interface Project {
   inbox_project?: boolean;
   view_style?: string;
   workspace_id?: string | null;
+  /**
+   * Who can reach the project. `visibility` is `restricted`, `team` or `public`
+   * as far as Todoist documents it; any other value is kept and shown as it comes.
+   */
+  access?: { visibility?: string; configuration?: Record<string, unknown> } | null;
   /** Todoist folders are projects that hold others rather than tasks. */
   is_folder?: boolean;
   collapsed?: boolean;
@@ -130,6 +135,8 @@ export interface Workspace {
   id: string;
   name: string;
   logo_big?: string | null;
+  /** `default_access_level` is what a project gets when its creator does not choose. */
+  properties?: { default_access_level?: string } | null;
 }
 
 /** Who a project is shared with, and whether they have said yes. */

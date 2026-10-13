@@ -12,6 +12,7 @@ and get a lot of new features and visual enhancements.
 [download it](https://github.com/julesvbertolino/todoist-enhancements/raw/main/docs/tour.mp4)
 
 [Open the app](https://todoistenhanced.julesbertolino.fr) ·
+[Mac app](#mac-app) ·
 [Changelog](CHANGELOG.md) ·
 [Report a bug or an idea](https://tally.so/r/WOLkVN) ·
 [Buy me a coffee](https://buymeacoffee.com/julesbertolino)
@@ -25,6 +26,7 @@ affiliated with, or supported by Todoist.**
 
 ## Contents
 
+- [Mac app](#mac-app)
 - [New features for Todoist](#new-features-for-todoist)
 - […and what you already know from Todoist](#and-what-you-already-know-from-todoist)
 - [Screenshots](#screenshots)
@@ -32,6 +34,26 @@ affiliated with, or supported by Todoist.**
 - [Links](#links)
 - [Building it](#building-it)
 - [Disclaimers](#disclaimers)
+
+---
+
+## Mac app
+
+A window around Enhanced for Todoist for your Mac, with one extra: press
+**Option + Space** over any app and the new task window opens, without going
+through a browser.
+
+- **[Download for Apple silicon](https://github.com/julesvbertolino/todoist-enhanced-desktop/releases/latest/download/Enhanced-for-Todoist-arm64.dmg)** (M1 and later)
+- **[Download for Intel](https://github.com/julesvbertolino/todoist-enhanced-desktop/releases/latest/download/Enhanced-for-Todoist-x64.dmg)**
+
+Not sure which one? Apple menu, About This Mac: "Chip" says Apple M1 or later,
+or "Processor" says Intel.
+
+The first time, macOS asks you to confirm that you want to open it: System
+Settings, Privacy & Security, then **Open Anyway**. The
+[install steps](https://github.com/julesvbertolino/todoist-enhanced-desktop#install-in-three-steps)
+show it in three lines. The app lives in its
+[own repository](https://github.com/julesvbertolino/todoist-enhanced-desktop).
 
 ---
 

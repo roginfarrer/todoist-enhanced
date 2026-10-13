@@ -83,10 +83,11 @@
   --today-line:#f0cdc6; --today-wash:#fdf7f5;
   --cal-text:#245ca8;   --cal-wash:#edf3fd; --cal-late-text:#a33c32;
   --deadline:#7a5cb9;
+  --date-today:#2f7d32; --date-tomorrow:#b26a00; --date-week:#692fc2;
   --row-hover:rgba(28,25,23,.022);
   --row-line-on-wash:rgba(32,32,32,.07);
   --picked:#f6f6f6;
-  --check-quiet:#b6b2ad;
+  --check-quiet:#9a958f;
   --switch-off:#c9c5c0;
   --knob:#ffffff;
   --tb-on-line:#f2c8c2;
@@ -215,10 +216,11 @@
   --today-line:#5a3430; --today-wash:#261e1d;
   --cal-text:#8db6f0;   --cal-wash:#1f2a3a; --cal-late-text:#ef8f86;
   --deadline:#ae95e6;
+  --date-today:#4caf50; --date-tomorrow:#f09a2a; --date-week:#b79af0;
   --row-hover:rgba(255,255,255,.03);
   --row-line-on-wash:rgba(255,255,255,.07);
   --picked:#2b2b2b;
-  --check-quiet:#6a6764;
+  --check-quiet:#7d7a76;
   --switch-off:#4a4846;
   --knob:#f2f2f2;
   --tb-on-line:#5c3430;
@@ -839,7 +841,12 @@ ul{margin:0;padding:0;list-style:none}
 .meta .repeatdot,.meta .hash{display:inline-grid;place-items:center}
 .meta .late{color:var(--late)}
 .meta .deadline{color:var(--deadline)}
-.meta .at{color:var(--info)}
+.meta .at{color:var(--date-fg,var(--info))}
+/* Todoist's colours for a date that is not overdue (#218). From the eighth day on it has none: plain grey. */
+.meta .at.tone-today{--date-fg:var(--date-today)}
+.meta .at.tone-tomorrow{--date-fg:var(--date-tomorrow)}
+.meta .at.tone-week{--date-fg:var(--date-week)}
+.meta .at.tone-later{--date-fg:var(--muted)}
 /* A tag wears its own colour: the glyph in it, the chip a wash of it. Todoist
    holds a colour for every tag and the row is where it earns its keep. */
 /* 12px in a task list (#141). The chip's height now comes from its text, so the
@@ -1224,7 +1231,6 @@ kbd{padding:2px 5px;border:1px solid var(--border-strong);border-radius:var(--r-
   .pactions .btn.primary{display:none}
   .metrics{margin-bottom:var(--s2);gap:6px 10px;font-size:var(--fs-12)}
   .metrics .sep{display:none}
-  .gname{white-space:nowrap}
   .attention{margin-top:var(--s2);padding:8px 10px;font-size:var(--fs-13)}
   .attention p span{display:none}
 

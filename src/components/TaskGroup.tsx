@@ -35,6 +35,8 @@ interface TaskGroupProps {
   viewKey?: string;
   /** Stays on the page with nothing in it, so the line that fills it is there. */
   keepWhenEmpty?: boolean;
+  /** A row of the page's own that sits first in the group, before its tasks (the note for Todoist's people). */
+  lead?: React.ReactNode;
   /** An accent for the sections that carry meaning: late, quick, and gathering dust. */
   accent?: 'late' | 'quick' | 'dust';
   /** Said quietly after the title, as "over 3 months" is after Gathering dust. */
@@ -60,7 +62,7 @@ interface TaskGroupProps {
 export function TaskGroup({
   title, items, childrenOf, onOpen, tint, actions,
   showProject = true, showSection = false, defaultCollapsed = false, dropTarget, onAddTask, accent,
-  sectionId, projectId, onRename, onDelete, reorderable, viewKey, keepWhenEmpty = false, draggable = true,
+  sectionId, projectId, onRename, onDelete, reorderable, viewKey, keepWhenEmpty = false, lead, draggable = true,
   subtitle, dust = false, collapsible = true, cards = false,
 }: TaskGroupProps) {
   const { t, locale } = useT();
@@ -186,6 +188,8 @@ export function TaskGroup({
         </div>
       )}
 
+      {!collapsed && lead}
+
       {!collapsed &&
         items.map((item) => draggable ? (
           <DraggableTask
@@ -308,7 +312,7 @@ function SectionDropSlots({ id }: { id: string }) {
  *
  * The field is sized from its own text rather than filling the row: a field
  * that stretches pushes the duration and the count halfway across the page for
- * no reason.
+ * no reason. A long name wraps inside the row.
  */
 export function SectionName({
   id, value, placeholder, label, onRename, wrap = false,
@@ -386,12 +390,19 @@ export function SectionName({
     );
   }
 
+  /* A list's section name wraps onto as many lines as it needs (#208). The box
+     takes its size from a hidden copy of the text laid over it, in the same
+     cell: the width follows the text up to the row's width, and the height
+     follows the lines, with no script and nothing scrolling inside. */
   return (
-    <input
-      {...common}
-      size={Math.max(placeholder.length, draft.length + 1)}
-      onChange={(e) => setDraft(e.target.value)}
-    />
+    <span className="gnamegrow" data-value={draft || placeholder}>
+      <textarea
+        {...common}
+        rows={1}
+        cols={1}
+        onChange={(e) => setDraft(e.target.value.replace(/\n/g, ' '))}
+      />
+    </span>
   );
 }
 

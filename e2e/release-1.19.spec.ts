@@ -118,7 +118,7 @@ test('#154 an empty section offers the add line in place, without saying nothing
   await go(page, '#/project/client-b');
   // A section made empty: a new one, as nothing is in it.
   await page.getByRole('button', { name: 'Add section' }).first().click();
-  const fresh = page.locator('.screen.active .group').filter({ has: page.locator('input.gnamefield') }).first();
+  const fresh = page.locator('.screen.active .group').filter({ has: page.locator('textarea.gnamefield') }).first();
   await expect(fresh.locator('.sectionadd')).toBeVisible();
   await expect(fresh.getByText('Nothing here.')).toHaveCount(0);
 });
@@ -559,7 +559,7 @@ test('#159 Show me, after an update, runs the tour over what the update brought'
   await page.evaluate(() => window.dispatchEvent(
     new CustomEvent('enhanced:changelog', { detail: { versions: ['1.19.0'] } }),
   ));
-  const dialog = page.getByRole('dialog', { name: /What.s new in/ });
+  const dialog = page.getByRole('dialog', { name: /What.s new since/ });
   await expect(dialog.getByRole('button', { name: 'Show me' })).toBeVisible();
   await dialog.getByRole('button', { name: 'Show me' }).click();
 
@@ -574,13 +574,13 @@ test('#159 Show me, after an update, runs the tour over what the update brought'
   await expect(page.getByRole('dialog', { name: 'Setting up' })).toHaveCount(0);
 });
 
-test('#159 the history in Settings offers the whole tour, not Show me', async ({ demo: page }) => {
+test('#159 the history in Settings offers neither Show me nor a tour button; the tour has its own button there', async ({ demo: page }) => {
   await go(page, '#/settings');
   await page.evaluate(() => window.dispatchEvent(new Event('enhanced:changelog')));
   const dialog = page.getByRole('dialog', { name: 'Changelog' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Show me', exact: true })).toHaveCount(0);
-  await expect(dialog.getByRole('button', { name: 'Show me the tour' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Show me the tour' })).toHaveCount(0);
 });
 
 /* The list rows still open their task from the group, and the group completes. */

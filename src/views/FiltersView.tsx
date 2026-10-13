@@ -1,9 +1,11 @@
+import { HireNote } from '@/components/HireNote';
 import { useMemo, useState } from 'react';
 import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import { Icon } from '@/components/Icon';
+import { FavouriteStar } from '@/components/FavouriteStar';
 import { FilterMark } from '@/components/FilterMark';
 import { FilterMenu } from '@/components/FilterHeader';
 import { FilterSheet, type FilterSheetTarget } from '@/components/overlays/FilterSheet';
@@ -62,6 +64,7 @@ export function FiltersView() {
           </button>
         </div>
       </div>
+      <HireNote />
 
       {filters.length === 0 ? (
         <p className="empty">{t('filters.none')}</p>
@@ -96,6 +99,7 @@ function FilterRow({
 }) {
   const { t } = useT();
 
+  const setFilterFavourite = useStore((s) => s.setFilterFavourite);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: filter.id });
 
   return (
@@ -127,7 +131,7 @@ function FilterRow({
         </span>
       </button>
 
-      {filter.is_favorite && <Icon name="star" className="tagcard-fav" aria-hidden="true" />}
+      <FavouriteStar on={filter.is_favorite} onToggle={() => void setFilterFavourite(filter.id, !filter.is_favorite)} />
       <FilterMenu filter={filter} onEdit={onEdit} />
     </div>
   );

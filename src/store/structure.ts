@@ -300,6 +300,7 @@ export const createStructureSlice: Slice<StructureSlice> = (_set, get) => ({
     if (extra.description) args.description = extra.description;
     if (extra.favourite) args.is_favorite = true;
     if (extra.viewStyle) args.view_style = extra.viewStyle;
+    if (extra.access) args.access = { visibility: extra.access };
 
     const commands: Command[] = [];
 
@@ -361,6 +362,7 @@ export const createStructureSlice: Slice<StructureSlice> = (_set, get) => ({
           is_archived: false, is_deleted: false,
           is_favorite: extra.favourite ?? false,
           ...(extra.viewStyle ? { view_style: extra.viewStyle } : {}),
+          ...(extra.access ? { access: { visibility: extra.access } } : {}),
           workspace_id: sibling ? (sibling.workspace_id ?? null) : workspaceId,
         },
       },

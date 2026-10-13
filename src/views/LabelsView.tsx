@@ -1,6 +1,8 @@
+import { HireNote } from '@/components/HireNote';
 import { useMemo, useRef, useState } from 'react';
 import { useDndMonitor } from '@dnd-kit/core';
 import { Icon } from '@/components/Icon';
+import { FavouriteStar } from '@/components/FavouriteStar';
 import { useT } from '@/hooks/useT';
 import { useData } from '@/hooks/useData';
 import { useStore } from '@/store/store';
@@ -99,6 +101,7 @@ export function LabelsView() {
           </button>
         </div>
       </div>
+      <HireNote />
 
       {labels.length === 0 ? (
         <p className="empty">{t('labels.none')}</p>
@@ -169,7 +172,7 @@ function TagRow({
         </span>
       </button>
 
-      {label.is_favorite && <Icon name="star" className="tagcard-fav" aria-hidden="true" />}
+      <FavouriteStar on={label.is_favorite} onToggle={() => void setFavourite(label.id, !label.is_favorite)} />
       <PageMenu
         label={t('labels.actions')}
         items={[

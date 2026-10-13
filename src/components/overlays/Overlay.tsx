@@ -42,7 +42,7 @@ let scrollWas = '';
  * Each closes itself on Escape, so while one is up the dialog behind it must
  * not take the same keystroke as meaning itself.
  */
-const OPEN_INSIDE = '.popover, .datepanel, .fselect-list';
+const OPEN_INSIDE = '.popover, .datepanel, .fselect-list, [data-picker-layer]';
 
 /** Everything in a dialog the keyboard can land on. */
 const FOCUSABLE = [
@@ -176,6 +176,10 @@ export function Overlay({
       const first = stops[0];
       const last = stops[stops.length - 1];
       const on = document.activeElement as HTMLElement | null;
+      /* A picker drawn into the document over the dialog keeps its own Tab:
+         pulling the focus back into the sheet made the date picker's Time and
+         Repeat buttons unreachable from the composer (#202). */
+      if (on && !sheet.contains(on) && on.closest(OPEN_INSIDE)) return;
       /* Focus outside the dialog altogether — left behind on the page, or
          nowhere at all — comes back to the near end of it rather than carrying
          on from wherever it was. */

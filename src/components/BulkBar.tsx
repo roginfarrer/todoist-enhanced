@@ -411,6 +411,9 @@ export function BulkBar() {
             value=""
             label={t('task.schedule')}
             withTime
+            /* A time is typed with its day here ("tomorrow 9am"): the Time
+               button would give every selected task today's date (#202). */
+            timeButton={false}
             onEscape={close}
             onPick={(iso) => {
               close();

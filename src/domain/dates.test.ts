@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { formatTimeAgo, msUntilNextDay, weekStartsOnOf } from './dates';
+import type { Item } from './types';
+import { dateTone, formatTimeAgo, msUntilNextDay, weekStartsOnOf } from './dates';
 
 describe('msUntilNextDay (#146)', () => {
   it('counts to the next local midnight', () => {
@@ -44,5 +45,22 @@ describe('weekStartsOnOf (#3)', () => {
     expect(weekStartsOnOf(undefined)).toBe(1);
     expect(weekStartsOnOf(0)).toBe(1);
     expect(weekStartsOnOf(9)).toBe(1);
+  });
+});
+
+describe('dateTone (#218)', () => {
+  const now = new Date(2026, 9, 12, 10, 0);
+  const on = (day: number) => ({ due: { date: `2026-10-${String(day).padStart(2, '0')}` } }) as unknown as Item;
+
+  it("follows Todoist: today, tomorrow, the next two to seven days, then none", () => {
+    expect(dateTone(on(12), now)).toBe('today');
+    expect(dateTone(on(13), now)).toBe('tomorrow');
+    expect(dateTone(on(14), now)).toBe('week');
+    expect(dateTone(on(19), now)).toBe('week');
+    expect(dateTone(on(20), now)).toBe('later');
+  });
+
+  it('has nothing to say about a task with no date', () => {
+    expect(dateTone({ due: null } as unknown as Item, now)).toBeNull();
   });
 });

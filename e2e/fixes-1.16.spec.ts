@@ -104,7 +104,7 @@ test('#115 the changelog opens from Settings, in the app', async ({ demo: page }
   // Settings shows the author's avatar from GitHub; this journey is not about it.
   await page.route('https://github.com/**', (route) => route.fulfill({ status: 204 }));
   await go(page, '#/settings');
-  await page.getByRole('button', { name: 'See the changes' }).click();
+  await page.getByRole('button', { name: 'Changelog' }).click();
   const dialog = page.getByRole('dialog', { name: 'Changelog' });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('.whatsnew-release').first()).toContainText('Version');

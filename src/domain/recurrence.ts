@@ -173,8 +173,10 @@ function readIn(
   /* A clock time, and a bound, both optional and both allowed to trail any
      core form. They are part of the match rather than left behind, because a
      phrase half-taken is a task named "at 9am" with a rule that does not say
-     when. */
-  const clock = `\\d{1,2}(?:[:h.]\\d{2}|h)?\\s*(?:am|pm)?`;
+     when. The space before "am" belongs to "am": left loose at the end of the
+     clock, it ate the space a bound needs, and "every mon at 9:15 ending…"
+     lost its end without a word. */
+  const clock = `\\d{1,2}(?:[:h.]\\d{2}|h)?(?:\\s*(?:am|pm))?`;
   const time = `(?:\\s+(?:${w.at}\\s*)?(?:${clock}|${w.clockWords}))?`;
   const datish = `(?:\\d{1,2}\\s+${month}|${month}\\s+\\d{1,2}|\\d{1,2}[/-]\\d{1,2}(?:[/-]\\d{2,4})?|\\d{4}-\\d{2}-\\d{2}|[a-z]+(?:\\s+\\d{1,2})?)`;
   const span = `(?:\\s+(?:for|pendant)\\s+\\d{1,3}\\s+${unit})`;
@@ -200,6 +202,12 @@ function readIn(
     // every 14 jan, 14 apr — dates in a year, possibly several
     `${every}\\s+\\d{1,2}\\s+${month}(?:${sep}\\d{1,2}\\s+${month})*`,
     `${every}\\s+${month}\\s+\\d{1,2}(?:${sep}${month}\\s+\\d{1,2})*`,
+    // every 2 workdays — before "every 3 days", which would stop at "tous les 2 jours"
+    `${every}\\s+\\d{1,3}\\s+${w.workday}`,
+    // every last day — "chaque dernier jour"
+    `${every}\\s+${w.position}\\s+${w.day}`,
+    // every 2 weeks mon, thu — what Todoist writes back for "every 2 weeks on…" (#202)
+    `${every}\\s+\\d{1,3}\\s+${w.week}\\s+(?:on\\s+)?${weekday}(?:${sep}${weekday})*`,
     // every mon, wed, fri
     `${every}\\s+${weekday}(?:${sep}${weekday})*`,
     // every 3 days, every 12 hours
@@ -284,15 +292,17 @@ function canonical(matched: string, lang: RecurrenceLang, w: Words): string {
  *
  * The time of day is kept too. A task due at 09:00 dragged to tomorrow is due
  * at 09:00 tomorrow, not at midnight — unless the new date names its own time,
- * which is the one case where the caller has been told otherwise.
+ * which is the one case where the caller has been told otherwise — or the
+ * time was taken off on purpose (`dropTime`, the picker's "Remove time").
  */
 export function dueForDate(
   existing: TodoistDue | null | undefined,
   date: string,
   fallbackLang = 'en',
+  { dropTime = false }: { dropTime?: boolean } = {},
 ): TodoistDue {
   const carriesTime = date.includes('T');
-  const previousTime = !carriesTime && existing?.date.includes('T')
+  const previousTime = !carriesTime && !dropTime && existing?.date.includes('T')
     ? existing.date.slice(existing.date.indexOf('T'))
     : '';
   const full = `${date}${previousTime}`;

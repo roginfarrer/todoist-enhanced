@@ -1013,23 +1013,8 @@ button.subprog[aria-expanded="false"]{background:var(--subtle)}
    A field rather than a line of text: the rule is the thing being edited, and
    showing it as a value you cannot touch was the reason the app could display
    a recurrence it had no way to change. */
-.repeatfield{display:grid;gap:5px;min-width:0}
-.repeatinput{
-  display:flex;align-items:center;gap:7px;min-height:34px;padding:0 10px;
-  border:1px solid var(--border-strong);border-radius:var(--r-ctl);background:var(--surface);
-}
-.repeatinput:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.repeatinput .ic{flex:0 0 auto;color:var(--faint)}
-.repeatinput input{
-  width:100%;min-width:0;border:0;outline:0;background:transparent;
-  color:var(--text);font-size:var(--fs-13);
-}
-.repeatinput input::placeholder{color:var(--faint)}
-.repeatinput:has(input[aria-invalid="true"]){border-color:var(--p1)}
 /* The refusal says what to type instead, because "not understood" on its own
    leaves the reader guessing at a grammar. */
-.repeatrefused{color:var(--p1);font-size:var(--fs-12);line-height:1.35}
-.repeathint{color:var(--muted);font-size:var(--fs-12);line-height:1.35}
 
 /* The repeat standing in the composer's date slot. Shaped like the picker it
    replaces, so the row does not change height when a rule is read. */

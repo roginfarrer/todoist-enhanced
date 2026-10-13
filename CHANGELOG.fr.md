@@ -8,6 +8,66 @@ Chaque ligne est marquée :
 - 🎨 ce qui existait et a été redessiné ou reformulé,
 - 🐛 un bug ou une régression corrigés.
 
+## 2.6.0
+
+Finitions rapides.
+
+🎨 **Les dates aux couleurs de Todoist.** Rouge en retard, vert pour aujourd'hui, orange pour demain, violet pour les sept jours suivants, aucune couleur au-delà.
+
+🎨 **Les titres de section longs passent à la ligne.** Le nom d'une section s'étale sur plusieurs lignes au lieu de dépasser de la page.
+
+🎨 **Les titres de tâche longs passent à la ligne à l'ajout.** Le champ grandit avec le titre, et la date, le #projet et l'@étiquette restent surlignés.
+
+🎨 **Q ajoute la tâche là où vous êtes.** Depuis Aujourd'hui elle est pour aujourd'hui, depuis Ma semaine elle reçoit l’étiquette de la semaine, depuis un projet elle va dans ce projet, depuis une page de tag elle reçoit ce tag.
+
+🎨 **Des pastilles colorées à l'ajout d'une tâche.** La date, l’échéance, la priorité, le projet et les tags prennent leur couleur.
+
+🎨 **Des lignes de tâche plus nettes.** La case est alignée sur le titre, et le titre est un peu plus marqué.
+
+🎨 **Liens LinkedIn, X et GitHub dans Réglages, À propos.**
+
+🐛 **Les pastilles colorées étaient grises.** Avec les pastilles « héritées » dans les Réglages, dates, projets et tags retrouvent leur couleur.
+
+🐛 **Passer la visite ouvrait la configuration.** Ce n'est plus le cas.
+
+🐛 **« Ajouter la tâche » ne faisait rien sans titre.** Quand tout le texte est lu comme une date, un projet ou un tag, le bouton est grisé et explique pourquoi.
+
+## 2.5.0
+
+Qui a accès à un projet, l'app Mac à portée de main, et une barre latérale qui défile jusqu'au bout.
+
+🆕 **Choisissez qui a accès à un projet.** Les fenêtres Nouveau projet et Modifier le projet ont un nouveau choix « Qui y a accès » : Restreint (seules les personnes que vous invitez), Équipe (toute l'équipe de l'espace de travail, pour les projets d'un espace de travail) et Public (toute personne qui a le lien peut le voir). Un nouveau projet reçoit le choix par défaut de son espace de travail, et un projet existant ne change que si vous changez ce choix. Todoist n'autorise pas Public sur tous les comptes : quand il refuse, vous en êtes informé et la modification n'est pas faite. Déplacer un projet vers un autre espace de travail lui donne le choix par défaut de cet espace.
+
+🆕 **Téléchargez l'app Mac depuis les Réglages.** L'app Mac met Enhanced for Todoist dans sa propre fenêtre et ouvre la fenêtre de nouvelle tâche par-dessus n'importe quelle app avec Option + Espace. Réglages, À propos a maintenant une carte « App Mac ». Son bouton « Télécharger pour Mac » ouvre un encart avec les trois étapes pour l'installer, y compris ce que macOS demande au premier lancement, et le téléchargement lui-même : le bon fichier pour votre Mac quand votre navigateur peut le dire, les deux (Apple silicon et Intel) quand il ne le peut pas. L'écran de connexion a une ligne discrète qui mène à la page de l'app. Ils n'apparaissent que sur un Mac, et jamais dans l'app Mac elle-même.
+
+🎨 **La fenêtre de mise à jour ne propose la visite que s'il y a du nouveau à montrer.** Après une mise à jour, « Me montrer » n'apparaît que si la version a ajouté quelque chose que la visite peut désigner. Sinon, pas de bouton de visite : la visite complète reste dans Réglages, À propos.
+
+🐛 **Tous les projets sont accessibles dans la barre latérale.** La zone « Ajouter une tâche » en bas grandit avec la ligne de synchronisation et les boutons qu'elle porte, et elle cachait les derniers projets de la liste, impossibles à faire défiler jusqu'à l'écran. La liste garde maintenant exactement la place que prend cette zone, quelle que soit la hauteur de la fenêtre.
+
+## 2.4.0
+
+Des petits détails qui gênaient.
+
+🆕 **Mettez un filtre ou un tag en favori depuis sa carte.** Sur les pages Filtres et Tags, chaque carte a une étoile à droite, toujours visible. Un clic l'ajoute aux favoris ou l'en retire, dans l'app et dans Todoist. Il fallait passer par le menu à trois points.
+
+🎨 **« Nouveautés » dit « depuis votre dernière visite ».** Après une mise à jour, le titre de la fenêtre ne porte plus le numéro de la dernière version, trompeur quand plusieurs versions sont listées. Chaque version garde son propre titre.
+
+🐛 **Vous pouvez taper dès l'ouverture du sélecteur d'icônes.** Sur un projet ou un filtre, cliquez l'icône à côté du titre et commencez à écrire : les icônes se filtrent, au lieu d'ouvrir la recherche de l'app.
+
+## 2.3.0
+
+L'heure, la durée et la répétition, sans les taper.
+
+🆕 **Réglez l'heure, la durée et la répétition depuis le sélecteur de date.** Sous les raccourcis de date, trois lignes : Heure, Durée et Répéter. Tapez une heure (« 20h30 », « 8pm ») ou une durée (« 45 », « 1h30 ») et les valeurs qui correspondent s'affichent pendant la frappe. Répéter propose les règles habituelles de Todoist (chaque jour, chaque semaine le même jour, chaque jour ouvré, chaque mois, chaque année) et « Personnaliser… » pour le reste : depuis la date planifiée ou depuis l'achèvement, tous les N jours, jours ouvrés, semaines, mois ou ans, les jours de la semaine, le jour du mois et une date de fin. La règle est écrite dans votre langue, telle que Todoist la reçoit. Cela fonctionne dans la fenêtre de nouvelle tâche, le menu Planifier d'une tâche et la tâche ouverte.
+
+🎨 **Une tâche récurrente affiche son jour avec le signe de répétition.** Dans la fenêtre de nouvelle tâche et dans la tâche ouverte, une tâche qui se répète affiche « ↻ Demain 09:30 » plutôt que les mots de la règle, lisibles au survol. La tâche ouverte n'a plus de champ séparé pour taper la règle : tout est dans la date de début.
+
+🐛 **Changer de jour garde l'heure.** Une tâche réglée sur « aujourd'hui 12:00 » déplacée à demain reste à 12:00, et une heure choisie sans jour passe à demain quand elle est déjà passée aujourd'hui.
+
+🐛 **Donner une répétition à une tâche ne saute plus son premier jour.** « Chaque jour » donné à une tâche prévue aujourd'hui commence aujourd'hui, pas demain, et changer l'heure d'une tâche récurrente la garde le même jour.
+
+🐛 **Une répétition avec une fin tapée après une heure garde sa fin.** « Tous les lundis à 9h jusqu'au 31/12 » perdait « jusqu'au 31/12 ».
+
 ## 2.2.0
 
 Vos filtres Todoist, et des tags dont on peut changer la couleur.

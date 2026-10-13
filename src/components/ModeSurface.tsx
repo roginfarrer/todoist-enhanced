@@ -63,6 +63,8 @@ interface ModeSurfaceProps {
    * group, #154). A board has no such lead, and never draws one.
    */
   lead?: ReactNode;
+  /** A row that sits first in the first group of a list, before its tasks (the note for Todoist's people). */
+  firstGroupLead?: ReactNode;
 }
 
 /**
@@ -115,16 +117,18 @@ function ListSurface(props: ModeSurfaceProps) {
   const { t } = useT();
   const groups = useGrouped(props);
 
-  if (props.items.length === 0 && !props.lead) {
+  if (props.items.length === 0 && !props.lead && !props.firstGroupLead) {
     return <p className="empty">{t('task.noTasks')}</p>;
   }
 
   return (
     <div className="mode">
       {props.lead}
-      {groups.map((group) => (
+      {groups.length === 0 && props.firstGroupLead}
+      {groups.map((group, index) => (
         <TaskGroup
           key={group.key}
+          lead={index === 0 ? props.firstGroupLead : undefined}
           title={group.title || undefined}
           items={group.items}
           childrenOf={props.childrenOf}

@@ -1,3 +1,4 @@
+import { seesHireNote } from '@/domain/hireNote';
 import { EstimateConversion } from '@/components/overlays/EstimateConversion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './components/Icon';
@@ -45,6 +46,7 @@ import { useData } from './hooks/useData';
 import { navigate, useRoute, type Route } from './hooks/useRoute';
 import { rootItems } from './store/selectors';
 import { detectConflicts } from './domain/conflicts';
+import { placementForPage } from './domain/dnd';
 import { useParentEstimates } from './hooks/useParentEstimates';
 import { anytimeItems, bucketOf, hasLabel, somedayItems, upcomingItems, weekItems } from './domain/views';
 import { effectiveEstimate } from './domain/estimates';
@@ -227,7 +229,10 @@ export function App() {
   useEffect(() => {
     /* Not while the tour runs: it swaps in the demo's snapshot, whose user
        is nobody this browser has set up, and that looked like a first run (#4). */
-    if (!QUICK_ADD && !tourOpen && ready && (connected || demo) && !hasOnboarded(userId) && !onboardingStarted) {
+    /* The render that closes the tour still carries the demo's user, put back
+       by the time this runs: the store is asked, not the render (#212). */
+    const liveUserId = useStore.getState().snapshot.user?.id;
+    if (!QUICK_ADD && !tourOpen && ready && (connected || demo) && !hasOnboarded(liveUserId) && !onboardingStarted) {
       setOnboardingStarted(true);
       /* Somebody meeting the app for the first time is getting the tour; a
          list of what changed since a version they never used is not news. */
@@ -242,8 +247,12 @@ export function App() {
      ever has the first run, and not before the account's own settings have
      been read, or a second browser would ask what the first already did. */
   useEffect(() => {
-    if (QUICK_ADD || tourOpen || !ready || !connected || demo || !settled || !hasOnboarded(userId)) return;
-    if (setupDone || setupAsked.current) return;
+    /* Asked of the store, not the render: the render that closes the tour still
+       has the demo's user and the tour's settings, which looked like an account
+       that had never seen the Setup (#212). */
+    const live = useStore.getState();
+    if (QUICK_ADD || tourOpen || !ready || !connected || demo || !settled || !hasOnboarded(live.snapshot.user?.id)) return;
+    if (live.prefs.setupDone || setupAsked.current) return;
     setupAsked.current = true;
     setWalkthrough(true);
   }, [ready, connected, demo, settled, userId, tourOpen, setupDone, setWalkthrough]);
@@ -278,6 +287,32 @@ export function App() {
     return () => { cancelled = true; };
   }, [ready, connected, demo, settled, userId, tourOpen, walkthroughOpen, whatsNew,
     seenVersion, whatsNewOn, setPrefs, setupDone]);
+
+  /* A note for Todoist's own people, once. Put up only when nothing else has
+     the page — no tour, no first run, no What's new — so it is not lost behind
+     them, and recorded on the account the moment it is shown. */
+  const userEmail = useStore((s) => s.snapshot.user?.email);
+  const hireNoteSeen = useStore((s) => s.prefs.hireNoteSeen);
+  const setHireNote = useStore((s) => s.setHireNote);
+  useEffect(() => {
+    if (QUICK_ADD || demo || !ready || !connected || !settled || !hasOnboarded(userId)) return;
+    if (tourOpen || walkthroughOpen || whatsNew || !setupDone || seenVersion !== VERSION) return;
+    if (hireNoteSeen || !seesHireNote(userEmail)) return;
+    setHireNote(true);
+    setPrefs({ hireNoteSeen: true });
+  }, [ready, connected, demo, settled, userId, tourOpen, walkthroughOpen, whatsNew, setupDone,
+    seenVersion, hireNoteSeen, userEmail, setHireNote, setPrefs]);
+
+  /* Development only: shows the note without a Todoist address or a fresh
+     account, whether it was seen already or not. Open the app with ?hire, or
+     from the console: window.dispatchEvent(new Event('enhanced:hire-note')). */
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const show = () => setHireNote(true);
+    if (new URLSearchParams(window.location.search).has('hire')) show();
+    window.addEventListener('enhanced:hire-note', show);
+    return () => window.removeEventListener('enhanced:hire-note', show);
+  }, [setHireNote]);
 
   const storageOpen = shouldAskEstimateStorage({
     ready: ready && connected && Boolean(userId), settled, demo, quickAdd: QUICK_ADD,
@@ -718,7 +753,7 @@ function AppShell({
 
   const openTask = (id: string) => setOpenTaskId(id);
   const addTask = () => {
-    setPlacement(route.view === 'project' && route.id ? { projectId: route.id } : {});
+    setPlacement(placementForPage(route, snapshot.user?.inbox_project_id));
     setComposerOpen(true);
   };
 

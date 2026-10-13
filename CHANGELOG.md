@@ -13,6 +13,66 @@ things first, then redesigns, then fixes, so write them in the order you
 want within each kind: the most visible, most frequent case first. The
 French translation lives in CHANGELOG.fr.md.
 
+## 2.6.0
+
+Quick finishes.
+
+🎨 **Dates in Todoist's colours.** Red when overdue, green for today, orange for tomorrow, purple for the next seven days, no colour after that.
+
+🎨 **Long section titles wrap.** A section name goes onto several lines instead of running off the page.
+
+🎨 **Long task titles wrap when adding a task.** The field grows with the title, and the date, #project and @tag stay highlighted.
+
+🎨 **Q adds the task where you are.** From Today it is due today, from My week it gets the week label, from a project it goes in that project, from a tag page it gets that tag.
+
+🎨 **Coloured chips when adding a task.** The date, the deadline, the priority, the project and the tags show their own colour.
+
+🎨 **Neater task rows.** The checkbox lines up with the title, and the title is a little bolder.
+
+🎨 **LinkedIn, X and GitHub links in Settings, About.**
+
+🐛 **Coloured chips were grey.** With "Inherited" chips in Settings, dates, projects and tags now show their colour again.
+
+🐛 **Skipping the tour opened the Setup.** It no longer does.
+
+🐛 **"Add task" did nothing with no title.** When everything typed is read as a date, a project or a tag, the button is now greyed out and says why.
+
+## 2.5.0
+
+Who can access a project, the Mac app within reach, and a sidebar that scrolls to the end.
+
+🆕 **Choose who can access a project.** The New project and Edit project windows have a new "Who can access" choice: Restricted (only the people you invite), Team (everyone in the workspace, for workspace projects) and Public (anyone with the link can see it). A new project gets its workspace's default, and an existing project only changes when you change the choice. Todoist does not allow Public on every account: when it refuses, you are told and the change is not made. Moving a project to another workspace gives it that workspace's default.
+
+🆕 **Get the Mac app from Settings.** The Mac app puts Enhanced for Todoist in its own window and opens the new task window over any app with Option + Space. Settings, About now has a "Mac app" card. Its "Download for Mac" button opens a call-out with the three steps to install it, including what macOS asks the first time you open it, and the download itself: the right file for your Mac when your browser can tell, both (Apple silicon and Intel) when it cannot. The sign-in screen has one quiet line that leads to the app's page. They only appear on a Mac, and never inside the Mac app itself.
+
+🎨 **The update window only offers the tour when it has something new to show.** After an update, "Show me" appears only if the release added something the tour can point at. Otherwise there is no tour button: the whole tour is still in Settings, About.
+
+🐛 **Every project can be reached in the sidebar.** The "Add task" area at the bottom grows with the sync line and the buttons it carries, and it was hiding the last projects of the list, which could not be scrolled into view. The list now keeps exactly as much room as that area takes, whatever the window height.
+
+## 2.4.0
+
+Small things that were in the way.
+
+🆕 **Star a filter or a tag from its card.** On the Filters and Tags pages, every card now has a star on its right, always visible. One click adds it to your favourites or removes it, in the app and in Todoist. It used to be only in the three-dot menu.
+
+🎨 **"What's new" says "since your last visit".** After an update, the window no longer carries the number of the latest release in its title, which was misleading when several releases were listed. Each release keeps its own version heading.
+
+🐛 **You can type right after opening the icon picker.** On a project or a filter, click the icon next to the title and start typing: the icons are filtered, instead of the search bar of the app opening.
+
+## 2.3.0
+
+Time, duration and repeat, without typing them.
+
+🆕 **Set a time, a duration and a repeat from the date picker.** Under the date shortcuts, three lines: Time, Duration and Repeat. Type a time ("20h30", "8pm") or a duration ("45", "1h30") and the matching values are offered as you type. Repeat offers Todoist's usual rules (every day, every week on the same day, every workday, every month, every year) and "Custom…" for the rest: from the scheduled date or from completion, every N days, workdays, weeks, months or years, the weekdays, the day of the month and an end date. The rule is written in your language, exactly as Todoist receives it. It works in the new task window, a task's Schedule menu and the open task.
+
+🎨 **A repeating task shows its day with the repeat mark.** In the new task window and in the open task, a task that repeats shows "↻ Tomorrow 09:30" instead of the rule's words, which you can read by hovering it. The open task no longer has a separate field to type the rule: everything is in the start date.
+
+🐛 **Changing the day keeps the time.** A task set to "today 12:00" moved to tomorrow stays at 12:00, and a time picked without a day goes to tomorrow when it has already passed today.
+
+🐛 **Giving a repeat to a task no longer skips its first day.** "Every day" given to a task due today starts today, not tomorrow, and changing the time of a repeating task keeps it on the same day.
+
+🐛 **A repeat with an end typed after a time keeps its end.** "Every monday at 9am until 31/12" used to lose "until 31/12".
+
 ## 2.2.0
 
 Your Todoist filters, and tags you can recolour.

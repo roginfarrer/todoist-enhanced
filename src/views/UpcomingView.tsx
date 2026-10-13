@@ -1,3 +1,4 @@
+import { HireNote } from '@/components/HireNote';
 import { useMemo, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { SubtasksProvider } from '@/components/TaskRow';
@@ -41,6 +42,7 @@ function UpcomingBody({ onOpen, onInsights, onUnestimated, onAddTaskTo }: Upcomi
   const prefs = useStore((s) => s.prefs);
   const setPrefs = useStore((s) => s.setPrefs);
   const current = viewPrefs(prefs, 'upcoming');
+  const hireNoteOpen = useStore((s) => s.hireNote);
   /* Upcoming answers "when?", so it only groups by time: a day (the
      default), a week or a month. A grouping saved before this (project,
      priority, tag, none) reads as days (#98). */
@@ -99,10 +101,13 @@ function UpcomingBody({ onOpen, onInsights, onUnestimated, onAddTaskTo }: Upcomi
     }))
     .filter((column) => column.items.length > 0 || current.mode === 'board');
 
+  /* Hosted by the first day of the list, when the page is that list; under the header otherwise. */
+  const hireInList = current.mode === 'list' && (group !== 'day' || columns.length > 0);
 
   return (
     <div className="page">
       <PageHeader
+        hireNote={!hireInList}
         title={t('nav.upcoming')}
         actions={
           <>
@@ -138,6 +143,7 @@ function UpcomingBody({ onOpen, onInsights, onUnestimated, onAddTaskTo }: Upcomi
           items={scoped}
           childrenOf={childrenOf}
           mode={current.mode === 'board' ? 'board' : 'list'}
+          firstGroupLead={hireNoteOpen ? <HireNote /> : undefined}
           group={group}
           sort={current.sort}
           order="day"
@@ -156,9 +162,11 @@ function UpcomingBody({ onOpen, onInsights, onUnestimated, onAddTaskTo }: Upcomi
         />
       ) : (
         <div className="mode">
-          {columns.map((column) => (
+          {columns.map((column, index) => (
             <TaskGroup
               key={column.id}
+              lead={index === 0 && hireNoteOpen ? <HireNote /> : undefined}
+              keepWhenEmpty={index === 0 && hireNoteOpen}
               title={column.title}
               items={column.items}
               childrenOf={childrenOf}

@@ -67,6 +67,21 @@ const HINT_DELAY_MS = 550;
 export function Sidebar({
   route, onAddTask, onSearch, onIssues, onProjectSheet, issuesCount, variant = 'rail',
 }: SidebarProps) {
+  /* The list scrolls under the Add task area, which grows with its contents
+     (the sync line, a second row of buttons). The scroller keeps as much room
+     at its end as that area really takes, or the last projects sit under it
+     and cannot be reached (#213). */
+  const footRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const foot = footRef.current;
+    const root = foot?.parentElement;
+    if (!foot || !root) return;
+    const measure = () => root.style.setProperty('--side-foot-h', `${Math.ceil(foot.getBoundingClientRect().height)}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(foot);
+    return () => observer.disconnect();
+  }, []);
   const { t } = useT();
   const { snapshot, items } = useData();
   const sheet = variant === 'sheet';
@@ -583,7 +598,7 @@ export function Sidebar({
         })}
       </div>
 
-      <div className="side-foot">
+      <div className="side-foot" ref={footRef}>
         <button className="addbtn" onClick={onAddTask}>
           {t('nav.addTask')}
           <Icon name="plus" />

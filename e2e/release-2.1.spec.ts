@@ -58,7 +58,7 @@ test('the Inbox is drawn as a project, so its sections can be added and shown', 
   await expect(field).toBeFocused();
   await page.keyboard.type('Waiting');
   await page.keyboard.press('Enter');
-  await expect(screen.locator('input.gname[value="Waiting"]')).toHaveCount(1);
+  await expect(screen.locator('.gnamegrow[data-value="Waiting"]')).toHaveCount(1);
 });
 
 test('the Display menu offers only the tags of the page in front', async ({ demo: page }) => {
@@ -80,7 +80,7 @@ test('the Display menu offers only the tags of the page in front', async ({ demo
 
 test('the Move to project menu keeps its width when a section has a very long name', async ({ demo: page }) => {
   await go(page, '#/project/site');
-  const title = page.locator('.screen.active input.gname').first();
+  const title = page.locator('.screen.active textarea.gname').first();
   await title.fill('A very long section name '.repeat(12));
   await title.press('Enter');
 

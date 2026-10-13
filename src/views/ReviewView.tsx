@@ -1,3 +1,4 @@
+import { HireNote } from '@/components/HireNote';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { COMPLETION_LINGER_MS } from '@/components/TaskRow';
@@ -282,6 +283,7 @@ export function ReviewView({ onOpen }: ReviewViewProps) {
         </div>
 
       </div>
+      <HireNote />
 
       {/* Where you are, and how much is left. A review with no visible end is
           the thing people stop doing. */}

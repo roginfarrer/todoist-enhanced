@@ -1,3 +1,4 @@
+import { HireNote } from '@/components/HireNote';
 import { useMemo, useState } from 'react';
 import { ProjectMenu } from '@/components/ProjectMenu';
 import { PageHeader } from '@/components/PageHeader';
@@ -236,10 +237,20 @@ function SimpleListBody({
     />
   ) : undefined;
   const lead = quickGroup || dustGroup ? <>{quickGroup}{dustGroup}</> : undefined;
+  /* The note is a row of the main list, under Quick and Dust. Where the page is
+     not drawn as a list (a board, a grouping), it goes under the header. */
+  const hireNoteOpen = useStore((s) => s.hireNote);
+  const commaFilter = kind === 'filter' && (filterResult.parts?.length ?? 0) > 1
+    && current.mode === 'list' && current.group === 'none';
+  const flatList = !commaFilter && !(kind === 'filter' && (filterResult.error || !filter))
+    && current.mode === 'list' && (current.group === 'none' || scoped.length === 0);
+  const hireInList = commaFilter || flatList
+    || (current.mode === 'list' && !(kind === 'filter' && (filterResult.error || !filter)));
 
   return (
     <div className="page">
       <PageHeader
+        hireNote={!hireInList}
         title={filter ? <FilterTitle filter={filter} /> : title}
         subtitle={filter ? <FilterDescription filter={filter} /> : undefined}
         actions={
@@ -323,6 +334,7 @@ function SimpleListBody({
                 items={shown}
                 childrenOf={childrenOf}
                 onOpen={onOpen}
+                lead={index === 0 && hireNoteOpen ? <HireNote /> : undefined}
                 keepWhenEmpty
               />
             );
@@ -341,6 +353,7 @@ function SimpleListBody({
           {lead}
           <TaskGroup
             items={ordered}
+            lead={hireNoteOpen ? <HireNote /> : undefined}
             childrenOf={childrenOf}
             onOpen={onOpen}
             dropTarget={dropTarget}
@@ -354,6 +367,7 @@ function SimpleListBody({
         <ModeSurface
           items={pool}
           lead={lead}
+          firstGroupLead={hireNoteOpen ? <HireNote /> : undefined}
           /* A board with no grouping is its one column, led by Quick: blue,
              and a place to look rather than somewhere to drop. */
           boardColumns={current.mode === 'board' && current.group === 'none'

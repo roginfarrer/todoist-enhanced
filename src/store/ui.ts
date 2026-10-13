@@ -18,6 +18,8 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   selection: [],
   selectionAnchor: null,
   sidePanel: null,
+  hireNote: false,
+  setHireNote(open) { set({ hireNote: open }); },
   timeFilter: { minutes: null, scope: 'page', sort: 'duration' },
   /* Closing "I have time" ends the choice: the pill reads "I have time" again
      and the next opening starts with no duration picked (#30). */

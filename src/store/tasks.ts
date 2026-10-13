@@ -5,6 +5,7 @@ import { fetchComments, fetchTask, itemFromCompleted, setCommentReaction } from 
 import { isUncompletable, toTodoistPriority, type Item, type Note, type Snapshot } from '@/domain/types';
 import { canStoreDurations, estimatePatch } from '@/domain/estimates';
 import { toApiDate } from '@/domain/dates';
+import { firstDayOfRule, ruleFromString } from '@/domain/repeatRule';
 import { readTime } from '@/domain/nlp';
 import { translate } from '@/i18n';
 import { byChildOrder, keyBetween, keysInOrder } from '@/domain/orderKey';
@@ -329,23 +330,34 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   /**
    * Gives a task a repeat rule.
    *
-   * Two different objects, deliberately. What goes to Todoist is the rule and
-   * nothing else, because Todoist resolves where the rule lands and a date
-   * sent from here would pin the first occurrence to this device's guess at
-   * it. What goes into the local snapshot has to be a complete due all the
-   * same — every list in the app reads `due.date`, and one without it takes
-   * the page down — so it keeps the date the task is already sitting on until
-   * the sync response arrives with the one the rule really resolves to.
+   * Todoist resolves where the rule lands, but on a task that already has a
+   * date it counts from that date and skips it (#202, checked against the
+   * API): "every day" given to a task due today lands tomorrow, "every sat"
+   * turned into "every mon" lands a week late, and a time changed in the rule
+   * moves the task to the next occurrence. Worse, a rule with "starting …"
+   * sent as an update takes the date away altogether. So:
+   *
+   * - "starting …" never goes in an update; the day it named is the date;
+   * - the first day goes with the rule whenever it is known — worked out by
+   *   the Repeat panel, kept by a time change, or plain enough to predict
+   *   (days, workdays, weekdays) — and Todoist takes it as given;
+   * - otherwise the rule goes alone, as before.
+   *
+   * What goes into the local snapshot has to be a complete due all the same —
+   * every list in the app reads `due.date` — so it is that first day, or the
+   * date the task is already on until the sync response brings the real one.
    */
   async setRecurrence(id, rule) {
     const item = get().snapshot.items[id];
     if (!item) return;
 
-    const due = { string: rule.string, lang: rule.lang, is_recurring: true };
+    const string = withoutStart(rule.string);
+    const date = rule.date ?? predictableFirstDay(rule.string);
+    const due = { string, lang: rule.lang, is_recurring: true, ...(date ? { date } : {}) };
     const local = {
       due: {
         ...due,
-        date: item.due?.date ?? toApiDate(new Date()),
+        date: date ?? item.due?.date ?? toApiDate(new Date()),
         timezone: item.due?.timezone ?? null,
       },
     };
@@ -659,3 +671,18 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     });
   },
 });
+
+/* "starting 2026-10-20" / "à partir du 2026-10-20": fine when a task is
+   created, but an update carrying it comes back with no date at all. */
+const withoutStart = (rule: string): string =>
+  rule.replace(/\s+(?:starting|from|à partir du|a partir du)\s+\d{4}-\d{2}-\d{2}/i, '');
+
+/* The first day of a rule typed or chosen without the Repeat panel's own
+   reckoning: only where it is plain (days, workdays, weekdays), counted from
+   the start it names or from today. A month or a year is anchored on a day
+   this cannot know, and is left to Todoist. */
+function predictableFirstDay(rule: string): string | null {
+  const read = ruleFromString(rule);
+  if (!read || read.unit === 'month' || read.unit === 'year') return null;
+  return firstDayOfRule(rule);
+}

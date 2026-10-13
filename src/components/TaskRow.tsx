@@ -19,7 +19,7 @@ import { useRowGesture } from '@/hooks/useRowGesture';
 import { useStore } from '@/store/store';
 import { displayTaskContent, isUncompletable, toDisplayPriority, type Item } from '@/domain/types';
 import { effectiveEstimate, formatDuration } from '@/domain/estimates';
-import { deadlineDate, dueDate, formatRelativeDay, formatTime, hasTime, isOverdue, isToday, overdueBy } from '@/domain/dates';
+import { dateTone, deadlineDate, dueDate, formatRelativeDay, formatTime, hasTime, isOverdue, isToday, overdueBy } from '@/domain/dates';
 import { markerStyle } from '@/domain/colors';
 import { renderInlineMarkdown, renderTitle } from '@/domain/markdown';
 import type { DetailChip } from '@/domain/taskDetails';
@@ -245,7 +245,7 @@ export function TaskRow({
     date: (
       <Fragment key="date">
         {due && (
-          <span className={late ? 'late' : 'at'}>
+          <span className={late ? 'late' : `at tone-${dateTone(item) ?? 'later'}`}>
             {!late && <Icon name="calendar" />}
             {formatRelativeDay(due, locale)}
             {hasTime(item.due) && ` ${formatTime(due, locale, hour12)}`}

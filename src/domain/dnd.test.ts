@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { arrangeDrop, descendantsOf, dropMutation, moveArgs, placementFor, planNestMany } from './dnd';
+import { arrangeDrop, descendantsOf, dropMutation, moveArgs, placementFor, placementForPage, planNestMany } from './dnd';
 import { weekLabel } from './types';
 import { due, item } from '@/test/items';
 
@@ -237,5 +237,20 @@ describe('arrangeDrop (#165)', () => {
 
   it('answers nothing for a row outside the siblings', () => {
     expect(arrangeDrop(['a', 'b'], ['a', 'b'], 'a', 'zzz')).toBeNull();
+  });
+});
+
+describe('placementForPage: what Q opens the composer with', () => {
+  const now = new Date(2026, 9, 12, 10, 0);
+  it('carries the page: its project, the Inbox, Today, its tag', () => {
+    expect(placementForPage({ view: 'project', id: 'p1' }, 'inbox', now)).toEqual({ projectId: 'p1' });
+    expect(placementForPage({ view: 'inbox' }, 'inbox', now)).toEqual({ projectId: 'inbox' });
+    expect(placementForPage({ view: 'today' }, 'inbox', now)).toEqual({ date: '2026-10-12' });
+    expect(placementForPage({ view: 'label', id: 'waiting' }, 'inbox', now)).toEqual({ labels: ['waiting'] });
+    expect(placementForPage({ view: 'week' }, 'inbox', now)).toEqual({ labels: [weekLabel()] });
+  });
+  it('fixes nothing from a page that fixes nothing', () => {
+    expect(placementForPage({ view: 'upcoming' }, 'inbox', now)).toEqual({});
+    expect(placementForPage({ view: 'filter', id: 'f1' }, 'inbox', now)).toEqual({});
   });
 });

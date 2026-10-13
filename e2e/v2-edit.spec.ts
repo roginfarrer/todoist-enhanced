@@ -33,7 +33,7 @@ test.describe('editing a task (v2)', () => {
     await sheet.getByRole('textbox', { name: 'Project name' }).fill('Photo studio');
     await sheet.getByRole('textbox', { name: 'Description' }).fill('Prints, frames and a spring show.');
     // Twenty colours, Todoist's own, ending on the two the sheet used to leave out.
-    await expect(sheet.getByRole('radio')).toHaveCount(20);
+    await expect(sheet.locator('.swatches').getByRole('radio')).toHaveCount(20);
     await sheet.getByRole('radio', { name: 'Taupe' }).click();
     await sheet.getByRole('button', { name: 'Parent project' }).click();
     await page.getByRole('option', { name: /Personal$/ }).click();

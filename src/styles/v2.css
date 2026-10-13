@@ -266,7 +266,7 @@
 .sidebar .karmabar{height:3px;width:78px;background:var(--side-bar)}
 .sidebar .side-top .iconbtn{width:30px;height:30px;border-radius:50%}
 .sidebar .side-top .iconbtn:hover{background:var(--side-hover)}
-.sidebar .side-scroll{padding:0 10px 96px;scroll-padding-bottom:96px}
+.sidebar .side-scroll{padding:0 10px calc(var(--side-foot-h,96px) + 8px);scroll-padding-bottom:calc(var(--side-foot-h,96px) + 8px)}
 .sidebar .searchbtn{height:34px;min-height:34px;border-radius:999px;margin:2px 0 14px;padding:0 13px}
 .sidebar .navitem{height:32px;min-height:32px;gap:10px;padding-block:0;padding-left:10px;border-radius:12px;font-size:13.5px;font-weight:400}
 .sidebar .navitem:hover{background:var(--side-hover)}
@@ -330,8 +330,12 @@
 .group{margin-top:26px}
 .group.accent-late,.group.accent-quick,.group.accent-dust{padding:14px 28px 6px;margin-inline:-28px;border-radius:14px}
 .task{padding-top:11px;padding-bottom:11px;--task-pt:11px}
-.ttitle{font-weight:400}
+.ttitle{font-weight:450}
 .check{border-radius:5px}
+/* The box sits on the title's first line, whatever the size: half of what is left of the line's height once
+   the 16px box is in it, then .6px lower, onto the middle of the lowercase letters, which is where the eye
+   reads a line's centre. A fixed 3px offset sat too low (#244). */
+.task > .check{margin-top:calc((1.4 * var(--fs-14) - 16px) / 2 + .6px)}
 .gcount{min-width:22px;padding:1px 7px;text-align:center;background:var(--btn-soft)}
 
 /* ==========================================================================
@@ -962,7 +966,6 @@ html.dragging-row .col .taskwrap{transition:margin .16s ease}
   background:var(--surface);color:var(--text);font:inherit;font-size:13px;resize:none;box-sizing:border-box}
 .comment-field::placeholder{color:var(--faint)}
 .comment-new{align-items:center}
-.repeatfield{margin-top:6px}
 
 /* Search fields in menus and pickers: no accent frame while typing (focus is read by the caret). */
 .pickersearch:focus-within{border-color:var(--border-strong);box-shadow:0 0 0 var(--s2) var(--surface);outline:none}
@@ -1015,9 +1018,16 @@ html.dragging-row .col .taskwrap{transition:margin .16s ease}
 
 /* What's new: a pill, a title, one paragraph; room between entries. */
 .whatsnew-body{padding:6px 30px 20px}
-.whatsnew-release ul{display:grid;gap:26px;margin-top:6px}
+.whatsnew-release ul{display:grid;gap:0;margin-top:6px}
 .whatsnew-release h3{margin:26px 0 16px}
-.whatsnew-change{grid-template-columns:96px minmax(0,1fr);gap:18px;align-items:start}
+/* A change is a block: the badge leads the title's line, then the paragraph at the dialog's full width. A thin
+   line closes each block but the last (#243, mockup A). */
+.whatsnew-change{display:block;padding:16px 0;border-bottom:1px solid var(--border)}
+.whatsnew-change .whatsnew-badge{display:inline-block;vertical-align:1px;margin:0 8px 0 0}
+.whatsnew-change .whatsnew-text{display:inline}
+.whatsnew-change .whatsnew-text .whatsnew-para{display:block;margin-top:5px}
+.whatsnew-change:first-child{padding-top:0}
+.whatsnew-change:last-child{padding-bottom:0;border-bottom:0}
 .whatsnew-text{display:grid;gap:5px;min-width:0}
 .whatsnew-title{font-size:14.5px;font-weight:650;line-height:1.35;letter-spacing:-.005em}
 .whatsnew-text .whatsnew-para{color:var(--muted);font-size:13.5px;line-height:1.65;display:block}
@@ -1450,6 +1460,8 @@ img.notifav{display:block;width:34px;height:34px;object-fit:cover}
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   -webkit-mask-image:linear-gradient(to bottom,#000 55%,transparent);mask-image:linear-gradient(to bottom,#000 55%,transparent);
 }
+/* #241 A thin rule under the window's title, from the title's first letter to the close button's edge: the head's own padding. */
+.whatsnew-head::after{content:"";position:absolute;left:24px;right:24px;bottom:0;height:1px;background:var(--border)}
 .whatsnew-foot{position:absolute;left:0;right:0;bottom:0;z-index:2;border-top:0}
 .whatsnew-body{padding-top:72px;padding-bottom:84px}
 .whatsnew-release h3{font-size:21px;line-height:1.25;font-weight:700;color:var(--accent);letter-spacing:-.01em}
@@ -1681,3 +1693,84 @@ img.notifav{display:block;width:34px;height:34px;object-fit:cover}
    in it, so the Tags list starts where the Filters list does. */
 .taglist{position:relative}
 .tagdrop-top{position:absolute;top:-10px;left:0;right:0;height:14px;margin:0}
+
+/* The favourite star on a filter or tag card: always drawn, filled when on (#217). */
+.tagcard-star{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:var(--r-sm);color:var(--faint)}
+.tagcard-star:hover{background:var(--hover);color:var(--text)}
+.tagcard-star.on{color:var(--p2)}
+.tagcard-star.on .ic{fill:currentColor}
+
+/* A section's name wraps inside the row, whatever its length (#208). The textarea and a hidden copy of its
+   text share one grid cell: the copy gives the cell its width and height, the textarea is drawn over it. */
+.gnamegrow{display:inline-grid;min-width:0;max-width:100%;flex:0 1 auto;margin-left:-6px}
+.gnamegrow::after,.gnamegrow > .gnamefield{
+  grid-area:1 / 1;box-sizing:border-box;min-width:0;width:100%;margin:0;padding:2px 6px;border:1px solid transparent;
+  font:inherit;font-size:var(--fs-14);font-weight:700;line-height:1.4;letter-spacing:inherit;
+  white-space:pre-wrap;overflow-wrap:anywhere;
+}
+.gnamegrow::after{content:attr(data-value) ' ';visibility:hidden;pointer-events:none}
+.gnamegrow > .gnamefield{resize:none;overflow:hidden;color:inherit;height:100%}
+/* Everything else in the head sits on the middle of the name's first line: the toggle's 10px of padding,
+   the field's border and padding, then half a line (#208). */
+.ghead:has(.gnamegrow){--gline:calc(13px + 1.4 * var(--fs-14) / 2);align-items:flex-start}
+.gtoggle:has(.gnamegrow){align-items:flex-start}
+.gtoggle .gnamegrow + .gstats{align-self:flex-start;margin-top:calc(var(--gline) - 10px - 10px)}
+.ghead:has(.gnamegrow) :is(.gmore,.gcaret){margin-top:calc(var(--gline) - 11px)}
+.ghead:has(.gnamegrow) .sectiondrag{top:calc(var(--gline) - 11px)}
+/* On a phone the count and the time would leave the name a few letters of room: they drop under it instead. */
+@media (max-width:720px){
+  .gtoggle:has(.gnamegrow){flex-wrap:wrap;row-gap:2px}
+  .gtoggle .gnamegrow + .gstats{margin-top:0}
+}
+
+/* The composer's title wraps (#247). Same two layers as the task panel's title, at the composer's own size:
+   the field and its mirror share every metric, or a mark slides off its word. */
+.composerbox > .namefield.multiline{margin-left:var(--s5)}
+.composerbox > .namefield.multiline .composer-name,
+.composerbox > .namefield.multiline .namemirror{
+  width:100%;box-sizing:border-box;display:block;margin:0;padding:9px 0;border:0;border-radius:0;
+  font:inherit;font-size:18px;font-weight:650;line-height:1.4;letter-spacing:normal;
+  white-space:pre-wrap;overflow-wrap:anywhere;overflow:hidden;
+}
+.composerbox > .namefield.multiline .composer-name{position:relative;z-index:1;resize:none;background:transparent;color:var(--text)}
+
+/* Settings, About: the author's links, each in its network's colours (#231). */
+.alinks.social{margin-top:0}
+.alinks .btn.social{height:36px;border:0;font-weight:600}
+.alinks .btn.social .ic{color:inherit}
+.alinks .btn.social.coffee{background:#ffdd00;color:#202020}
+.alinks .btn.social.coffee:hover{background:#ffd500}
+.alinks .btn.social.linkedin{background:#0a66c2;color:#fff}
+.alinks .btn.social.linkedin:hover{background:#004182}
+.alinks .btn.social.x{background:#000;color:#fff}
+.alinks .btn.social.x:hover{background:#272727}
+.alinks .btn.social.github{background:#24292f;color:#fff}
+.alinks .btn.social.github:hover{background:#3b4249}
+:root[data-theme="dark"] .alinks .btn.social:is(.x,.github){box-shadow:inset 0 0 0 1px var(--border-strong)}
+
+/* Composer chips wear what they hold: the date its row colour, the project its own colour, with no outline (#218). */
+.fselect-face.chipface.tone-today{--marker:var(--date-today)}
+.fselect-face.chipface.tone-tomorrow{--marker:var(--date-tomorrow)}
+.fselect-face.chipface.tone-week{--marker:var(--date-week)}
+.fselect-face.chipface.tone-late{--marker:var(--late)}
+.fselect-face.chipface.tone-deadline{--marker:var(--deadline)}
+.fselect-face.chipface.tinted:not(.tone-later){
+  border-color:transparent;box-shadow:none;
+  background:color-mix(in srgb,var(--marker) 12%,var(--surface));
+  color:color-mix(in srgb,var(--marker) 78%,var(--text));
+}
+.fselect-face.chipface.tinted:not(.tone-later) .ic{color:inherit}
+
+/* "Version 2.6.0  12 changes": the count is quiet, on the heading's baseline. */
+.whatsnew-release h3 .whatsnew-count{font-size:var(--fs-13);font-weight:500;color:var(--faint);letter-spacing:0}
+
+/* Every chip of the new task window behaves the same: a soft pill with no outline, whose 1px of transparent
+   border never goes away, so nothing moves under the pointer; hovered or open, it only gets a shade deeper.
+   The generic select face's ring and white fill belong to the forms, not to these pills. */
+.composer-chips .fselect-face.chipface,
+.composer-chips .fselect-face.chipface:is(:hover,.open){border:1px solid transparent;box-shadow:none}
+.composer-chips .fselect-face.chipface:not(.unset):not(.tinted):not(.crepeat){background:var(--btn-soft)}
+.composer-chips .fselect-face.chipface:not(.tinted):not(.crepeat):is(:hover,.open){background:var(--hover)}
+.composer-chips .fselect-face.chipface.crepeat:is(:hover,.open){background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
+.composer-chips .fselect-face.chipface.tinted:not(.tone-later){background:color-mix(in srgb,var(--marker) 12%,var(--surface))}
+.composer-chips .fselect-face.chipface.tinted:not(.tone-later):is(:hover,.open){background:color-mix(in srgb,var(--marker) 20%,var(--surface))}

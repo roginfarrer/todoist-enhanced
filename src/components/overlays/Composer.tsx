@@ -64,12 +64,28 @@ export function Composer({
   const [sectionId, setSectionId] = useState('');
   const [priority, setPriority] = useState<DisplayPriority>(4);
   const [date, setDate] = useState('');
-  const [recurrence, setRecurrence] = useState<Shorthand['recurrence']>(null);
+  /* `first`: the day a rule built in the date picker starts on, for its chip (#202). */
+  const [recurrence, setRecurrence] = useState<(Shorthand['recurrence'] & { first?: string }) | null>(null);
   const [deadline, setDeadline] = useState('');
   /** The tags picked by hand (or given by the page the composer opened on). */
   const [labels, setLabels] = useState<string[]>([]);
   const [minutes, setMinutes] = useState<number | null>(null);
   const [tagsOpen, setTagsOpen] = useState(false);
+  /* The tag list and the button that opens it: a click anywhere else puts the
+     list away, as any other picker does, instead of leaving it open until the
+     button is found again. */
+  const tagPickerRef = useRef<HTMLDivElement | null>(null);
+  const tagButtonRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!tagsOpen) return;
+    const away = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (tagPickerRef.current?.contains(target) || tagButtonRef.current?.contains(target)) return;
+      setTagsOpen(false);
+    };
+    document.addEventListener('pointerdown', away, true);
+    return () => document.removeEventListener('pointerdown', away, true);
+  }, [tagsOpen]);
   /** The project sheet, opened from the project chip's "New project…". */
   const [newProject, setNewProject] = useState(false);
   const [tagQuery, setTagQuery] = useState('');
@@ -379,6 +395,10 @@ export function Composer({
           onPasteList={(lines, keepAsText) => void pasteList(lines, keepAsText)}
           placeholder={t('composer.namePlaceholder')}
           ariaLabel={t('composer.name')}
+          /* A long title wraps and the field grows, as the task panel's does (#247).
+             A wrapping field does not take the focus by itself. */
+          multiline
+          autoFocus
           snapshot={snapshot}
           naturalDates={naturalDates}
           refusals={refusals}
@@ -408,20 +428,21 @@ export function Composer({
           {/* A repeat answers the same question a date does, so it stands in
               the date's own place: a task cannot be both on Tuesday and every
               Monday. */}
-          {recurrence ? (
-            <button
-              type="button"
-              className="fselect-face chipface crepeat"
-              onClick={() => setRecurrence(null)}
-              title={t('composer.clearRepeat')}
-            >
-              <Icon name="repeat" size="sm" />
-              <span className="fselect-value">{recurrence.string}</span>
-              <Icon name="close" size="sm" />
-            </button>
-          ) : (
-            <DateField variant="chip" withTime value={date} onChange={setDate} label={t('composer.date')} />
-          )}
+          {/* The chip shows the rule when there is one, and opens the same
+              picker either way: Time and Repeat at its foot (#202), the cross
+              beside it to stop repeating. Picking a plain day replaces the
+              rule — a new task has no series to keep. */}
+          <DateField
+            variant="chip"
+            withTime
+            value={date}
+            onChange={(next) => { setDate(next); setRecurrence(null); }}
+            label={t('composer.date')}
+            recurrence={recurrence}
+            onRecurrence={setRecurrence}
+            onClearRecurrence={() => setRecurrence(null)}
+            duration={{ minutes, onChange: setMinutes }}
+          />
 
           <DateField
             variant="chip"
@@ -438,6 +459,7 @@ export function Composer({
             unset={priority === 4}
             unsetLabel={t('composer.priority')}
             chipIcon={<Icon name="flag" size="sm" style={{ color: `var(--p${priority})` }} />}
+            tint={`var(--p${priority})`}
             value={String(priority)}
             onChange={(next) => setPriority(Number(next) as DisplayPriority)}
             options={([1, 2, 3, 4] as const).map((p) => ({
@@ -452,7 +474,9 @@ export function Composer({
               <button
                 key={label}
                 type="button"
-                className="fselect-face chipface tagchip"
+                /* In the tag's own colour, as the date and the project chips are. */
+                className={`fselect-face chipface tagchip${known?.color ? ' tinted' : ''}`}
+                style={known?.color ? markerStyle(known.color) : undefined}
                 title={t('composer.removeTag', { name: label })}
                 onClick={() => dropTag(label)}
               >
@@ -464,6 +488,7 @@ export function Composer({
           })}
 
           <button
+            ref={tagButtonRef}
             type="button"
             className="fselect-face chipface unset"
             aria-expanded={tagsOpen}
@@ -480,8 +505,19 @@ export function Composer({
             <div
               className="popover tagpicker"
               role="dialog"
+              /* Escape puts the list away, wherever the focus is in it, and
+                 leaves the task window open. */
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape') return;
+                event.stopPropagation();
+                setTagsOpen(false);
+                tagButtonRef.current?.focus();
+              }}
               aria-label={t('composer.labels')}
-              ref={(node) => node?.scrollIntoView({ block: 'nearest' })}
+              ref={(node) => {
+                tagPickerRef.current = node;
+                node?.scrollIntoView({ block: 'nearest' });
+              }}
             >
               <div className="pickersearch">
                 <Icon name="search" size="sm" />
@@ -604,13 +640,19 @@ export function Composer({
             <kbd>⌘</kbd><kbd>↵</kbd> {t('composer.hintAdd')}
           </span>
           <button className="btn quiet" onClick={onClose}>{t('composer.cancel')}</button>
+          {/* Everything typed can be read as a date, a project or a tag, and then
+              there is no title left for Todoist: the button says so rather than
+              doing nothing when clicked. */}
           <button
             className="btn primary"
-            disabled={!name.trim() || saving}
+            disabled={!parsed.content.trim() || saving}
+            title={name.trim() && !parsed.content.trim() ? t('composer.needsTitle') : undefined}
             aria-busy={saving}
             onClick={() => void submit()}
           >
-            {t('composer.add')}
+            {/* The window stays open while Todoist answers (#142): the button says
+                it is sending, rather than looking switched off. */}
+            {saving ? t('composer.adding') : t('composer.add')}
           </button>
         </div>
       </div>

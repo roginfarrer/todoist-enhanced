@@ -36,7 +36,7 @@ for (const scheme of ['light', 'dark'] as const) {
 
     test('the setup fits the screen and keeps its buttons in view', async ({ demo: page }) => {
       await go(page, '#/settings');
-      await page.getByRole('button', { name: 'Redo the setup' }).click();
+      await page.getByRole('button', { name: 'Setup', exact: true }).click();
       await page.locator('.setup').getByRole('button', { name: 'Continue' }).click();
       const box = (await page.locator('.setup').boundingBox())!;
       expect(box.width).toBeLessThanOrEqual(375);

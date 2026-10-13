@@ -41,6 +41,8 @@ interface SelectProps {
   unsetLabel?: string;
   /** The chip's own glyph, where the option's marker or icon is not the right one. */
   chipIcon?: ReactNode;
+  /** A colour the set chip is tinted with, where the value has one but no project marker (a priority). */
+  tint?: string;
   /** The list is exactly as wide as the control, however long its options are. */
   matchWidth?: boolean;
 }
@@ -60,7 +62,7 @@ interface SelectProps {
  */
 export function Select({
   label, value, options, onChange, ariaLabel, placeholder, searchable: searchableProp,
-  variant = 'field', unset = false, unsetLabel, chipIcon, matchWidth = false,
+  variant = 'field', unset = false, unsetLabel, chipIcon, tint, matchWidth = false,
 }: SelectProps) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
@@ -258,7 +260,8 @@ export function Select({
       <button
         type="button"
         ref={buttonRef}
-        className={`fselect-face${chip ? ' chipface' : ''}${chip && unset ? ' unset' : ''}${open ? ' open' : ''}${quiet ? ' quiet' : ''}`}
+        style={chip && !unset ? (tint ? ({ '--marker': tint } as React.CSSProperties) : current?.marker ? markerStyle(current.marker) : undefined) : undefined}
+        className={`fselect-face${chip ? ' chipface' : ''}${chip && !unset && (tint || current?.marker) ? ' tinted' : ''}${chip && unset ? ' unset' : ''}${open ? ' open' : ''}${quiet ? ' quiet' : ''}`}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel ?? label}

@@ -1,3 +1,4 @@
+import { HireNote } from '@/components/HireNote';
 import { useMemo } from 'react';
 import { EisenhowerDisplayMenu } from '@/components/EisenhowerDisplayMenu';
 import { PageHeader } from '@/components/PageHeader';
@@ -22,6 +23,7 @@ interface EisenhowerViewProps {
 
 export function EisenhowerView({ onOpen, onUnestimated }: EisenhowerViewProps) {
   const { t } = useT();
+  const hireNoteOpen = useStore((s) => s.hireNote);
   const { snapshot, items, childrenOf } = useData();
   const layout = useStore((s) => s.prefs.eisenhowerLayout);
   const urgentRules = useStore((s) => s.prefs.eisenhowerUrgent);
@@ -64,6 +66,7 @@ export function EisenhowerView({ onOpen, onUnestimated }: EisenhowerViewProps) {
   return (
     <div className="page eisenhower-page">
       <PageHeader
+        hireNote={false}
         title={t('matrix.title')}
         load={load}
         onOpenUnestimated={load.unestimatedCount > 0 ? onUnestimated : undefined}
@@ -72,7 +75,7 @@ export function EisenhowerView({ onOpen, onUnestimated }: EisenhowerViewProps) {
 
       <SubtasksProvider value={false}>
         <div className={layout === 'matrix' ? 'eisenhower-grid' : 'eisenhower-list'}>
-          {EISENHOWER_QUADRANTS.map((quadrant) => (
+          {EISENHOWER_QUADRANTS.map((quadrant, index) => (
             <div className={`quadrant ${quadrant}`} key={quadrant}>
               <TaskGroup
                 title={t(`matrix.${quadrant}.title` as TranslationKey)}
@@ -80,6 +83,7 @@ export function EisenhowerView({ onOpen, onUnestimated }: EisenhowerViewProps) {
                 childrenOf={childrenOf}
                 onOpen={onOpen}
                 showProject
+                lead={index === 0 && hireNoteOpen ? <div className="taskwrap"><HireNote /></div> : undefined}
                 keepWhenEmpty
                 draggable={false}
                 collapsible={false}

@@ -9,7 +9,7 @@ test('create a section, then rename it (#79)', async ({ demo: page }) => {
   await field.press('Enter');
   // Held by its section id, which stays put while the name changes.
   const id = await field.getAttribute('data-section-name');
-  const name = page.locator(`.screen.active input[data-section-name="${id}"]`);
+  const name = page.locator(`.screen.active textarea[data-section-name="${id}"]`);
   await expect(name).toHaveValue('Garage');
 
   await name.fill('Garage and tools');

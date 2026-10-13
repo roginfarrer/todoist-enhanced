@@ -32,6 +32,26 @@ export const isToday = (item: Item, now = new Date()): boolean => {
   return !!d && isSameDay(d, now);
 };
 
+/**
+ * The colour Todoist gives a date that is not overdue: green for today, orange
+ * for tomorrow, purple for the next two to seven days, and none from the
+ * eighth day on (#218). Overdue is the caller's, which is red.
+ */
+export type DateTone = 'today' | 'tomorrow' | 'week' | 'later';
+export function dateTone(item: Item, now = new Date()): DateTone | null {
+  const d = dueDate(item);
+  if (!d) return null;
+  return toneOfDay(d, now);
+}
+
+/** The same colours for a day being picked, as the composer's date chip shows it. */
+export function toneOfDay(d: Date, now = new Date()): DateTone {
+  const days = differenceInCalendarDays(d, now);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  return days <= 7 ? 'week' : 'later';
+}
+
 export const isFuture = (item: Item, now = new Date()): boolean => {
   const d = dueDate(item);
   return !!d && startOfDay(d) > startOfDay(now);

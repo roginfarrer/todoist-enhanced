@@ -116,7 +116,7 @@ test.describe('setup and settings (v2)', () => {
     expect(sections).toEqual([
       'Account', 'General', 'Appearance', 'Sidebar', 'Lists', 'Features and planning', 'Conflict detection', 'About',
     ]);
-    await page.getByRole('button', { name: 'Redo the setup' }).click();
+    await page.getByRole('button', { name: 'Setup', exact: true }).click();
     await expect(page.locator('.setup-name')).toHaveText('Robin');
   });
 

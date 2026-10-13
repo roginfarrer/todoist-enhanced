@@ -232,6 +232,8 @@ export function TaskActions({ item, childrenOf, onOpen, onKeep }: TaskActionsPro
       if (sheetRef.current?.contains(target)) return;
       // The menu is drawn into the document, not into the row (#111).
       if (placement.ref.current?.contains(target)) return;
+      // The date picker's Custom repeat dialog is drawn over everything (#202).
+      if ((target as Element).closest?.('[data-picker-layer], .popover.listbox')) return;
       setMenu('none');
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu('none'); };
@@ -385,11 +387,11 @@ export function TaskActions({ item, childrenOf, onOpen, onKeep }: TaskActionsPro
    * than resolves, so giving it a day takes the tag off — exactly as every
    * other way of dating a task here does.
    */
-  function commitDate(iso: string) {
+  function commitDate(iso: string, how?: { clearTime?: boolean }) {
     setMenu('none');
     const before = { due: item.due, labels: item.labels };
     const update = {
-      due: dueForDate(item.due, iso),
+      due: dueForDate(item.due, iso, 'en', { dropTime: how?.clearTime }),
       labels: item.labels.filter((l) => l.toLowerCase() !== weekLabel().toLowerCase()),
     };
     const patch = (fields: Record<string, unknown>) => (snap: Snapshot): Snapshot => ({
@@ -435,6 +437,26 @@ export function TaskActions({ item, childrenOf, onOpen, onKeep }: TaskActionsPro
       toast(t('task.repeats', { rule: repeat.string }), () => {
         void apply([updateItem(item.id, before)], patch(before));
       });
+    });
+  }
+
+  /**
+   * "Stop repeating", from the picker's Repeat (#202): the occurrence the task
+   * is on becomes its date, once — the same as emptying the rule in the task
+   * panel.
+   */
+  function stopRepeating() {
+    if (!item.due?.is_recurring) return;
+    setMenu('none');
+    const before = { due: item.due };
+    const date = item.due.date;
+    const update = { due: { ...item.due, string: date, is_recurring: false } };
+    const patch = (fields: Record<string, unknown>) => (snap: Snapshot): Snapshot => ({
+      ...snap,
+      items: { ...snap.items, [item.id]: { ...snap.items[item.id], ...fields } as Item },
+    });
+    void apply([updateItem(item.id, update)], patch(update)).then(() => {
+      toast(t('task.repeatStopped'), () => { void apply([updateItem(item.id, before)], patch(before)); });
     });
   }
 
@@ -498,11 +520,17 @@ export function TaskActions({ item, childrenOf, onOpen, onKeep }: TaskActionsPro
             {/* The one date picker (#110): the same field, choices and month
                 as the bulk bar's Date panel and every date field. */}
             <DatePicker
-              value={item.due?.date.slice(0, 10) ?? ''}
+              value={item.due?.date ?? ''}
               label={t('task.schedule')}
               withTime
               onPick={commitDate}
               onRecurrence={commitRecurrence}
+              recurrence={item.due?.is_recurring ? item.due : null}
+              onClearRecurrence={stopRepeating}
+              duration={{
+                minutes: computed ? null : minutes,
+                onChange: (value) => void updateTask(item.id, { estimateMinutes: value }),
+              }}
               onEscape={() => setMenu('none')}
               shortcuts={taskShortcuts(t, locale, {
                 today: () => void moveTo({ kind: 'today' }, t('common.today')),

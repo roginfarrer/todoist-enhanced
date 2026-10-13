@@ -114,6 +114,34 @@ export function placementFor(target: DropTarget, now = new Date()): TaskPlacemen
   }
 }
 
+/**
+ * What a task created from a page with the Q shortcut starts with: the page's
+ * project, Today's date, the tag of a tag page, My week's label. The same as the page's own
+ * "Add task" line, so the two never disagree. Pages that fix nothing (Upcoming,
+ * a filter) give nothing.
+ */
+export function placementForPage(
+  page: { view: string; id?: string },
+  inboxId: string | undefined,
+  now = new Date(),
+): TaskPlacement {
+  switch (page.view) {
+    case 'project':
+      return page.id ? { projectId: page.id } : {};
+    case 'inbox':
+      return inboxId ? { projectId: inboxId } : {};
+    case 'today':
+      return placementFor({ kind: 'today' }, now);
+    /* My week's own "Add task" line puts a task in the week with its label. */
+    case 'week':
+      return placementFor({ kind: 'anytime' }, now);
+    case 'label':
+      return page.id ? { labels: [page.id] } : {};
+    default:
+      return {};
+  }
+}
+
 export function dropMutation(item: Item, target: DropTarget): DropMutation | null {
   switch (target.kind) {
     case 'today':

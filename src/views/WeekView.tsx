@@ -1,3 +1,4 @@
+import { HireNote } from '@/components/HireNote';
 import { useMemo } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { SubtasksProvider } from '@/components/TaskRow';
@@ -73,6 +74,7 @@ function WeekBody({
   const { snapshot, items, childrenOf } = useData();
   const prefs = useStore((s) => s.prefs);
   const updateMany = useStore((s) => s.updateMany);
+  const hireNoteOpen = useStore((s) => s.hireNote);
   const confirm = useConfirm();
   /* Two pages, two sets of display preferences: a filter set on Today has no
      business following you to the rest of the week. */
@@ -190,9 +192,15 @@ function WeekBody({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- placementFor and onAddTaskTo are stable for a page.
   }, [groups, prefs.showQuickGroup, current.sort, childrenOf, snapshot, t, scope]);
 
+  /* Whether one of the groups below is drawn with its own "Add task" line. */
+  const hasAddLine = (scope !== 'anytime' && (
+    (prefs.showQuickGroup && groups.quick.length > 0) || groups.untimed.length > 0 || groups.timed.length > 0 || hireNoteOpen
+  )) || (scope !== 'today' && groups.anytime.length > 0);
+
   return (
     <div className="page">
       <PageHeader
+        hireNote={current.mode === 'board'}
         title={t(scope === 'today' ? 'nav.today' : 'nav.week')}
         actions={
           <>
@@ -218,7 +226,6 @@ function WeekBody({
         onOpen={onOpen}
         onUnestimated={onUnestimated}
       />
-
 
       {current.mode === 'list' && current.group === 'none' ? (
         <div className="mode">
@@ -262,6 +269,8 @@ function WeekBody({
           <TaskGroup
             title={t('group.untimed')}
             items={sortedGroup(groups.untimed)}
+            lead={hireNoteOpen ? <HireNote /> : undefined}
+            keepWhenEmpty={hireNoteOpen}
             childrenOf={childrenOf}
             onOpen={onOpen}
             reorderable={byHand}
@@ -293,11 +302,23 @@ function WeekBody({
             />
           )}
 
-          {scoped.length === 0 && <p className="empty">{t('task.noTasks')}</p>}
+          {/* A group is drawn only when it has tasks, and the line that adds one
+              comes with it: an empty page, or a Today with only overdue tasks,
+              still gets one, at the foot of the page. */}
+          {!hasAddLine && (
+            <button
+              className="addline sectionadd"
+              onClick={() => onAddTaskTo(placementFor({ kind: scope === 'today' ? 'today' : 'anytime' }))}
+            >
+              <Icon name="plus" size="sm" />
+              {t('nav.addTaskHere')}
+            </button>
+          )}
         </div>
       ) : (
         <ModeSurface
           items={scoped}
+          firstGroupLead={hireNoteOpen ? <HireNote /> : undefined}
           childrenOf={childrenOf}
           mode={current.mode}
           group={current.group}
