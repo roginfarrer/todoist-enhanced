@@ -9,7 +9,8 @@ import { fileURLToPath, URL } from 'node:url';
  * Apache applies them in production. `npm run preview` applies the same ones
  * here so a build can be checked against the policy before it is uploaded.
  * Keep the two in step. Cloudflare Pages gets them from `_headers`, which the
- * build writes from this list.
+ * build writes from this list, and the built page carries the policy itself
+ * as well (contentSecurityMeta).
  */
 const SECURITY_HEADERS = {
   'Content-Security-Policy': [
@@ -31,6 +32,30 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
 };
+
+/**
+ * The same Content-Security-Policy as a `<meta>` tag in the built page, so a
+ * copy served by a host that reads neither .htaccess nor _headers (Netlify,
+ * GitHub Pages, a plain static server) is still covered. `frame-ancestors` is
+ * dropped: browsers ignore it in a meta tag, and the headers keep it where
+ * the host sends them.
+ * Build only: the dev server injects an inline script for React's hot reload,
+ * which this policy would refuse.
+ */
+function contentSecurityMeta(policy: string): Plugin {
+  const content = policy.split('; ').filter((part) => !part.startsWith('frame-ancestors')).join('; ');
+  return {
+    name: 'content-security-meta',
+    apply: 'build',
+    /* Right after the charset, which comes first, and ahead of every script
+       the policy has to cover. */
+    transformIndexHtml(html) {
+      const charset = '<meta charset="utf-8" />';
+      if (!html.includes(charset)) throw new Error('index.html: no charset meta to put the Content-Security-Policy after');
+      return html.replace(charset, `${charset}\n    <meta http-equiv="Content-Security-Policy" content="${content}" />`);
+    },
+  };
+}
 
 /**
  * `_headers`, the same policy for Cloudflare Pages, which ignores `.htaccess`.
@@ -124,6 +149,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    contentSecurityMeta(SECURITY_HEADERS['Content-Security-Policy']),
     oauthClientDocument(PUBLIC_URL),
     cloudflareHeaders(),
     VitePWA({

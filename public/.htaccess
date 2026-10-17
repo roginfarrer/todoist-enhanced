@@ -37,8 +37,10 @@
 #                the author's from GitHub, on hosts that are not fixed, so any
 #                HTTPS image is allowed. An image cannot run anything.
 #
-# Keep in step with `preview.headers` in vite.config.ts, which applies the
-# same policy to `npm run preview` so it can be checked before uploading.
+# Keep in step with `SECURITY_HEADERS` in vite.config.ts, which applies the
+# same policy to `npm run preview` so it can be checked before uploading, and
+# writes it into the built index.html as a <meta> tag for hosts that ignore
+# this file.
 <IfModule mod_headers.c>
   Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.todoist.com; img-src 'self' data: blob: https:; font-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; frame-src https://tally.so; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
   Header always set X-Content-Type-Options "nosniff"

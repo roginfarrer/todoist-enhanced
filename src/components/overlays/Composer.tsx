@@ -1,13 +1,13 @@
 import { DescriptionEditor } from '../Checklist';
 import { useCreateTag } from '@/hooks/useCreateTag';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Overlay } from './Overlay';
 import { useConfirm } from './Confirm';
 import { Icon } from '../Icon';
 import { EstimateField } from '../EstimateField';
 import { PlacementField } from '../PlacementField';
 import { Select } from '../Select';
-import { ProjectSheet } from './ProjectSheet';
+import { ProjectSheet, type ProjectSheetTarget } from './ProjectSheet';
 import { DateField } from '../DateField';
 import { TaskNameField } from '../TaskNameField';
 import { useT } from '@/hooks/useT';
@@ -88,6 +88,16 @@ export function Composer({
   }, [tagsOpen]);
   /** The project sheet, opened from the project chip's "New project…". */
   const [newProject, setNewProject] = useState(false);
+  /* One object for as long as the sheet is open. The sheet starts its fields
+     afresh whenever it is handed a new target, so a fresh one on every render
+     here emptied the name being typed whenever the composer re-rendered. */
+  const newProjectTarget = useMemo<ProjectSheetTarget>(() => (newProject
+    ? {
+        mode: 'create',
+        workspaceId: null,
+        onCreated: (id) => { setProjectId(id); setSectionId(''); },
+      }
+    : null), [newProject]);
   const [tagQuery, setTagQuery] = useState('');
   const newTag = useCreateTag(tagQuery);
   const [subtasks, setSubtasks] = useState<string[]>([]);
@@ -658,13 +668,7 @@ export function Composer({
       </div>
     </Overlay>
     <ProjectSheet
-      target={newProject
-        ? {
-            mode: 'create',
-            workspaceId: null,
-            onCreated: (id) => { setProjectId(id); setSectionId(''); },
-          }
-        : null}
+      target={newProjectTarget}
       onClose={() => setNewProject(false)}
     />
     </>
