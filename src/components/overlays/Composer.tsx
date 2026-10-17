@@ -1,13 +1,16 @@
+import { AssigneeField } from '../AssigneeField';
+import { canAssign } from '@/domain/assignees';
+import { assignees } from '@/domain/sharing';
 import { DescriptionEditor } from '../Checklist';
 import { useCreateTag } from '@/hooks/useCreateTag';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Overlay } from './Overlay';
 import { useConfirm } from './Confirm';
 import { Icon } from '../Icon';
 import { EstimateField } from '../EstimateField';
 import { PlacementField } from '../PlacementField';
 import { Select } from '../Select';
-import { ProjectSheet } from './ProjectSheet';
+import { ProjectSheet, type ProjectSheetTarget } from './ProjectSheet';
 import { DateField } from '../DateField';
 import { TaskNameField } from '../TaskNameField';
 import { useT } from '@/hooks/useT';
@@ -16,7 +19,7 @@ import { formatDuration } from '@/domain/estimates';
 import { markerStyle } from '@/domain/colors';
 import { toTodoistPriority, type DisplayPriority } from '@/domain/types';
 import {
-  parseShorthand, splitTrailingEstimate, type HighlightKind, type Shorthand, type TextRange,
+  parseShorthand, type HighlightKind, type Shorthand, type TextRange,
 } from '@/domain/shorthand';
 import { matchesSearch } from '@/domain/search';
 import { byLabelOrder } from '@/domain/orderKey';
@@ -33,6 +36,7 @@ interface ComposerProps {
   /** Pre-filled tags, for a page that is one tag. */
   defaultLabels?: string[];
   defaultPriority?: DisplayPriority;
+  defaultResponsibleUid?: string | null;
 }
 
 /**
@@ -43,7 +47,7 @@ interface ComposerProps {
  * priority, tags and the estimate all sit on the row below.
  */
 export function Composer({
-  open, onClose, defaultProjectId, defaultSectionId, defaultDate, defaultLabels, defaultPriority,
+  open, onClose, defaultProjectId, defaultSectionId, defaultDate, defaultLabels, defaultPriority, defaultResponsibleUid,
 }: ComposerProps) {
   const { t } = useT();
   const snapshot = useStore((s) => s.snapshot);
@@ -61,6 +65,7 @@ export function Composer({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [projectId, setProjectId] = useState('');
+  const [responsibleUid, setResponsibleUid] = useState<string | null>(null);
   const [sectionId, setSectionId] = useState('');
   const [priority, setPriority] = useState<DisplayPriority>(4);
   const [date, setDate] = useState('');
@@ -88,15 +93,29 @@ export function Composer({
   }, [tagsOpen]);
   /** The project sheet, opened from the project chip's "New project…". */
   const [newProject, setNewProject] = useState(false);
+  // A store refresh must not look like reopening the sheet and erase its draft.
+  const newProjectTarget = useMemo<ProjectSheetTarget>(() => newProject ? {
+    mode: 'create', workspaceId: null,
+    onCreated: (id) => { setProjectId(id); setSectionId(''); },
+  } : null, [newProject]);
   const [tagQuery, setTagQuery] = useState('');
+  const [activeTag, setActiveTag] = useState(-1);
   const newTag = useCreateTag(tagQuery);
   const [subtasks, setSubtasks] = useState<string[]>([]);
   const [subtaskDraft, setSubtaskDraft] = useState('');
+  /** What each subtask line has turned down, by line; and the line being typed. */
+  const [subtaskRefusals, setSubtaskRefusals] = useState<Record<number, TextRange[]>>({});
+  const [draftRefusals, setDraftRefusals] = useState<TextRange[]>([]);
+  /** A line leaves: the ones after it move up, and so do what they turned down. */
+  const forgetRefusals = (index: number) => setSubtaskRefusals((prev) => Object.fromEntries(
+    Object.entries(prev).filter(([key]) => Number(key) !== index)
+      .map(([key, value]) => [Number(key) > index ? Number(key) - 1 : Number(key), value])));
   /** The readings of the name that have been turned down, by position in it. */
   const [refusals, setRefusals] = useState<TextRange[]>([]);
 
   useEffect(() => {
     if (!open) return;
+    setResponsibleUid(defaultResponsibleUid ?? null);
     setName('');
     setDescription('');
     setPriority(4);
@@ -107,6 +126,8 @@ export function Composer({
     setTagQuery('');
     setSubtasks([]);
     setSubtaskDraft('');
+    setSubtaskRefusals({});
+    setDraftRefusals([]);
     setRefusals([]);
     setProjectId(defaultProjectId || inboxId);
     setSectionId(defaultSectionId ?? '');
@@ -116,14 +137,27 @@ export function Composer({
     /* eslint-disable-next-line react-hooks/exhaustive-deps -- the array is
        built fresh by the caller on every render; its contents are the dep. */
   }, [open, defaultProjectId, defaultSectionId, defaultDate, defaultPriority, defaultLabels?.join('\u0000'),
-    inboxId]);
+    inboxId, defaultResponsibleUid]);
+
+  useEffect(() => {
+    if (!open || !projectId || !responsibleUid || canAssign(snapshot, projectId, responsibleUid)) return;
+    setResponsibleUid(null);
+    useStore.getState().toast(t('assignee.cleared'));
+  }, [open, projectId, responsibleUid, snapshot, t]);
 
   const tags = Object.values(snapshot.labels)
     .filter((l) => !l.is_deleted && !l.name.startsWith('est-'))
     .sort(byLabelOrder);
   const filteredTags = tags.filter((label) => matchesSearch(label.name, tagQuery));
 
-  const parsed = parseShorthand(name, snapshot, naturalDates, refusals, dateFormat);
+  /* Who `+name` can give the task to: the people of the project the name has
+     settled on, or of the one chosen so far. Nobody in the Inbox or in a
+     project that is not shared, where `+` stays a plain character. */
+  const peopleOf = (named: string | null) => {
+    const target = named || projectId || inboxId;
+    return target && snapshot.projects[target]?.can_assign_tasks !== false ? assignees(snapshot, target) : [];
+  };
+  const parsed = parseShorthand(name, snapshot, naturalDates, refusals, dateFormat, peopleOf);
 
   /*
    * The task's tags: the ones picked by hand, and the ones the name says right
@@ -178,6 +212,7 @@ export function Composer({
     if (reading === 'recurrence') setRecurrence(null);
     if (reading === 'priority') setPriority(4);
     if (reading === 'duration') setMinutes(null);
+    if (reading === 'assignee') setResponsibleUid(defaultResponsibleUid ?? null);
     if (reading === 'project') { setProjectId(fallbackProject); setSectionId(''); }
     /* A tag read from the name needs nothing here: it is read again from the
        name every time, so refusing it is enough to take it off. */
@@ -196,7 +231,7 @@ export function Composer({
    * afterwards stays changed until the name says something new.
    */
   const { date: readDate, projectId: readProject, sectionId: readSection,
-    priority: readPriority, minutes: readMinutes, recurrence: readRepeat } = parsed;
+    priority: readPriority, minutes: readMinutes, recurrence: readRepeat, assigneeId: readAssignee } = parsed;
 
   /*
    * Each of these also watches `refusals`, whose identity changes only when a
@@ -247,6 +282,15 @@ export function Composer({
     if (readProject) setSectionId(readSection ?? '');
   }, [readProject, readSection, refusals]);
   useEffect(() => { if (readPriority) setPriority(readPriority); }, [readPriority, refusals]);
+  /* The person follows the name the same way, and lets go of them when the
+     words are deleted — unless the chip was changed by hand since. */
+  const wasAssignee = useRef<string | null>(null);
+  useEffect(() => {
+    if (readAssignee) setResponsibleUid(readAssignee);
+    else if (wasAssignee.current) setResponsibleUid((now) => (now === wasAssignee.current ? (defaultResponsibleUid ?? null) : now));
+    wasAssignee.current = readAssignee ?? null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the reading itself.
+  }, [readAssignee, refusals]);
   useEffect(() => {
     if (readMinutes !== null) setMinutes(readMinutes);
   }, [readMinutes, refusals]);
@@ -339,17 +383,30 @@ export function Composer({
     const dueDate = date;
     const repeat = recurrence;
     const pending = subtaskDraft.trim();
-    /* A subtask can end with its own estimate, read the way the name's is and
-       written the same way (#163). */
-    const allSubtasks = (pending ? [...subtasks, pending] : subtasks).map((line) => {
-      const { content: title, minutes: estimate } = splitTrailingEstimate(line);
-      return { content: title, ...(estimate === null ? {} : { estimateMinutes: estimate }) };
+    /* Each line is read as the task's own title is (#264): a date, a repeat,
+       `p1`, `@tag` and `(25)` apply to that subtask. A `#project` stays text:
+       a subtask lives in its parent's project. */
+    const lines = (pending ? [...subtasks, pending] : subtasks).map((line, index) => {
+      const turnedDown = index < subtasks.length ? subtaskRefusals[index] ?? [] : draftRefusals;
+      const first = parseShorthand(line, snapshot, naturalDates, turnedDown, dateFormat);
+      const asText = first.ranges.filter((r) => r.kind === 'project').map(({ start, end }) => ({ start, end }));
+      const read = asText.length > 0
+        ? parseShorthand(line, snapshot, naturalDates, [...turnedDown, ...asText], dateFormat) : first;
+      return {
+        content: read.content.trim() || line,
+        ...(read.priority ? { priority: toTodoistPriority(read.priority) } : {}),
+        ...(read.labels.length > 0 ? { labels: read.labels } : {}),
+        ...(read.minutes === null ? {} : { estimateMinutes: read.minutes }),
+        ...(read.recurrence
+          ? { due: { string: read.recurrence.string, lang: read.recurrence.lang, is_recurring: true } }
+          : read.date ? { due: { date: read.date, timezone: null, string: read.date, lang: 'en' as const, is_recurring: false } } : {}),
+      };
     });
-
-    await createTask({
+    const saved = await createTask({
       content,
       description: description.trim() || undefined,
       project_id: targetProject,
+      responsible_uid: responsibleUid,
       section_id: sectionId || undefined,
       priority: toTodoistPriority(priority),
       labels: allLabels,
@@ -364,10 +421,10 @@ export function Composer({
           ? { date: dueDate, timezone: null, string: dueDate, lang: 'en', is_recurring: false }
           : undefined,
       deadline: deadline ? { date: deadline, lang: 'en' } : undefined,
-      subtasks: allSubtasks,
+      subtasks: lines,
     });
 
-    onClose();
+    if (saved) onClose();
   }
 
   return (
@@ -401,6 +458,7 @@ export function Composer({
           autoFocus
           snapshot={snapshot}
           naturalDates={naturalDates}
+          peopleOf={peopleOf}
           refusals={refusals}
           onRefusals={(next, change) => {
             setRefusals(next);
@@ -429,8 +487,8 @@ export function Composer({
               the date's own place: a task cannot be both on Tuesday and every
               Monday. */}
           {/* The chip shows the rule when there is one, and opens the same
-              picker either way: Time and Repeat at its foot (#202), the cross
-              beside it to stop repeating. Picking a plain day replaces the
+              picker either way: Time and Repeat at its foot (#202), where the
+              repeat can also be removed. Picking a plain day replaces the
               rule — a new task has no series to keep. */}
           <DateField
             variant="chip"
@@ -441,6 +499,7 @@ export function Composer({
             recurrence={recurrence}
             onRecurrence={setRecurrence}
             onClearRecurrence={() => setRecurrence(null)}
+            showRecurrenceClear={false}
             duration={{ minutes, onChange: setMinutes }}
           />
 
@@ -493,7 +552,7 @@ export function Composer({
             className="fselect-face chipface unset"
             aria-expanded={tagsOpen}
             onClick={() => setTagsOpen((openNow) => {
-              if (!openNow) setTagQuery('');
+              if (!openNow) { setTagQuery(''); setActiveTag(-1); }
               return !openNow;
             })}
           >
@@ -526,24 +585,33 @@ export function Composer({
                   value={tagQuery}
                   placeholder={t('nav.search')}
                   aria-label={t('nav.search')}
-                  onChange={(event) => setTagQuery(event.target.value)}
+                  onChange={(event) => { setTagQuery(event.target.value); setActiveTag(-1); }}
                   onKeyDown={(event) => {
                     event.stopPropagation();
-                    if (event.key === 'Enter' && newTag.available) {
+                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                      event.preventDefault();
+                      if (filteredTags.length) {
+                        const next = event.key === 'ArrowDown' ? (activeTag + 1) % filteredTags.length : activeTag <= 0 ? filteredTags.length - 1 : activeTag - 1;
+                        setActiveTag(next);
+                        tagPickerRef.current?.querySelectorAll('.checkrow')[next]?.scrollIntoView({ block: 'nearest' });
+                      }
+                    } else if (event.key === 'Enter' && activeTag >= 0 && filteredTags[activeTag]) {
+                      event.preventDefault(); toggleTag(filteredTags[activeTag].name);
+                    } else if (event.key === 'Enter' && newTag.available) {
                       event.preventDefault(); void createAndPickTag();
                     } else if (event.key === 'Enter' && filteredTags[0]) {
                       event.preventDefault();
                       toggleTag(filteredTags[0].name);
                     }
-                    if (event.key === 'Escape') setTagsOpen(false);
+                    if (event.key === 'Escape') { setTagsOpen(false); tagButtonRef.current?.focus(); }
                   }}
                 />
               </div>
               {newTag.available && <button className="opt" disabled={newTag.busy} onClick={() => void createAndPickTag()}><Icon name="plus" size="sm" />{t('estimates.createTag', { name: newTag.name })}</button>}
               {tags.length === 0 && <p className="menuhint">{t('labels.none')}</p>}
               {tags.length > 0 && filteredTags.length === 0 && <p className="menuhint">{t('search.noResults')}</p>}
-              {filteredTags.map((label) => (
-                <label className="checkrow" key={label.id}>
+              {filteredTags.map((label, index) => (
+                <label className={`checkrow${activeTag === index ? ' active' : ''}`} key={label.id}>
                   <input
                     type="checkbox"
                     checked={allTags.some((l) => sameTag(l, label.name))}
@@ -570,6 +638,7 @@ export function Composer({
               setSectionId(place.sectionId ?? '');
             }}
           />
+          <AssigneeField projectId={projectId || inboxId} value={responsibleUid} onChange={setResponsibleUid} chip />
         </div>
 
         {/* Level 3, subtasks: open, with a heading and a count, one of the
@@ -583,28 +652,27 @@ export function Composer({
             <div className="composer-sub" key={index}>
               <span className="check p4" aria-hidden="true" />
               <TaskNameField
-                estimateOnly
                 autoFocus={false}
                 fieldClassName="subtaskfield"
                 value={content}
                 onChange={(value) => setSubtasks((prev) => prev.map((s, i) => (i === index ? value : s)))}
                 onBlur={() => setSubtasks((prev) => {
                   const trimmed = prev[index]?.trim();
-                  if (!trimmed) return prev.filter((_, i) => i !== index);
+                  if (!trimmed) { forgetRefusals(index); return prev.filter((_, i) => i !== index); }
                   return trimmed === prev[index] ? prev : prev.map((s, i) => (i === index ? trimmed : s));
                 })}
                 onSubmit={() => (document.activeElement as HTMLElement | null)?.blur()}
                 placeholder=""
                 ariaLabel={t('detail.subtasks')}
                 snapshot={snapshot}
-                naturalDates={false}
-                refusals={[]}
-                onRefusals={() => {}}
+                naturalDates={naturalDates}
+                refusals={subtaskRefusals[index] ?? []}
+                onRefusals={(next) => setSubtaskRefusals((prev) => ({ ...prev, [index]: next }))}
               />
               <button
                 className="iconbtn"
                 aria-label={t('common.cancel')}
-                onClick={() => setSubtasks((prev) => prev.filter((_, i) => i !== index))}
+                onClick={() => { forgetRefusals(index); setSubtasks((prev) => prev.filter((_, i) => i !== index)); }}
               >
                 <Icon name="close" size="sm" />
               </button>
@@ -613,7 +681,6 @@ export function Composer({
           <div className="composer-sub adding">
             <span className="check p4" aria-hidden="true" />
             <TaskNameField
-              estimateOnly
               autoFocus={false}
               fieldClassName="subtaskfield"
               value={subtaskDraft}
@@ -622,14 +689,16 @@ export function Composer({
                 const value = subtaskDraft.trim();
                 if (!value) return;
                 setSubtasks((prev) => [...prev, value]);
+                setSubtaskRefusals((prev) => ({ ...prev, [subtasks.length]: draftRefusals }));
                 setSubtaskDraft('');
+                setDraftRefusals([]);
               }}
               placeholder={t('composer.subtaskPlaceholder')}
               ariaLabel={t('detail.addSubtask')}
               snapshot={snapshot}
-              naturalDates={false}
-              refusals={[]}
-              onRefusals={() => {}}
+              naturalDates={naturalDates}
+              refusals={draftRefusals}
+              onRefusals={setDraftRefusals}
             />
           </div>
         </div>
@@ -658,13 +727,7 @@ export function Composer({
       </div>
     </Overlay>
     <ProjectSheet
-      target={newProject
-        ? {
-            mode: 'create',
-            workspaceId: null,
-            onCreated: (id) => { setProjectId(id); setSectionId(''); },
-          }
-        : null}
+      target={newProjectTarget}
       onClose={() => setNewProject(false)}
     />
     </>

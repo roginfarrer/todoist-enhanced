@@ -93,6 +93,8 @@ function useGrouped(props: ModeSurfaceProps) {
       noSection: t('group.noSection'),
       noEstimate: t('metrics.noEstimates'),
       noLabel: t('common.none'),
+      unassigned: t('detail.unassigned'),
+      unavailable: t('assignee.unavailable'),
       priority: (p) => t(`common.p${p}` as TranslationKey),
       day: (d) => (d ? formatRelativeDay(d, locale) : t('common.none')),
       week: (monday) => {
@@ -321,7 +323,7 @@ function BoardSurface(props: ModeSurfaceProps) {
                 group: the place follows the pointer between the cards (#20). */}
             <RowListContext.Provider value={column.dropTarget ? {
               order: props.order ?? 'project',
-              ids: column.items.map((item) => item.id),
+              ids: column.items.filter((item) => !item.projection).map((item) => item.id),
               target: column.dropTarget,
               viewKey: props.viewKey,
             } : null}>

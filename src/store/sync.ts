@@ -1,3 +1,4 @@
+import { clearProjectPeopleCache } from './collab';
 /** Talking to Todoist: signing in and out, reading, writing, the offline queue, the demo. */
 import { verifyEstimateWrites } from './estimate-safety';
 import { auth } from '@/api/auth';
@@ -242,6 +243,7 @@ export const createSyncSlice: Slice<SyncSlice> = (set, get) => ({
     });
   },
   async disconnect() {
+    clearProjectPeopleCache();
     sessionRemove('demo');
     await auth.disconnect();
     await idb.clearAll();
@@ -292,7 +294,7 @@ export const createSyncSlice: Slice<SyncSlice> = (set, get) => ({
       const missingFilters = !get().snapshot.filters;
       const fromScratch = signedIn ? stale : (full || stale || missingFilters);
       const token = fromScratch ? '*' : get().snapshot.syncToken;
-      const response = await sync(token);
+      const response = await sync(token, undefined, get().snapshot.workspaces);
       const snapshot = applySync(fromScratch ? emptySnapshot() : get().snapshot, response);
       const canonical = preferencesWriteTimer
         ? null

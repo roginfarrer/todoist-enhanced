@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { Icon } from './Icon';
+import { WorkspaceAvatar } from './WorkspaceFilter';
 import { useT } from '@/hooks/useT';
 import { isAccessLevel } from '@/domain/projectAccess';
 import type { TranslationKey } from '@/i18n';
@@ -52,10 +52,8 @@ export function AccessChoice({ levels, value, onChange, workspace, labelledBy }:
   );
 }
 
-/** The workspace's picture, or a group glyph when it has none or it does not load. */
+/** The workspace's picture, or its initial on a colour when it has none, as everywhere else. */
 function WorkspaceMark({ workspace }: { workspace: Workspace | null }) {
-  const [broken, setBroken] = useState<string | null>(null);
-  const logo = workspace?.logo_big ?? null;
-  if (!logo || broken === logo) return <Icon name="group" />;
-  return <img src={logo} alt="" referrerPolicy="no-referrer" onError={() => setBroken(logo)} />;
+  if (!workspace) return <Icon name="group" />;
+  return <WorkspaceAvatar id={workspace.id} name={workspace.name} logo={workspace.logo_big ?? null} />;
 }

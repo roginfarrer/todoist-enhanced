@@ -65,3 +65,17 @@ describe('applySync filters', () => {
     expect(Object.keys(gone.filters ?? {})).toEqual(['f1']);
   });
 });
+
+describe('collaborator sync variants and deletion', () => {
+  it('reads both spellings of the membership field defensively', () => {
+    const next = applySync(emptySnapshot(), { sync_token: 't', full_sync: true,
+      collaborators_states: [{ project_id: 'p', user_id: 'a', state: 'active' }] });
+    expect(next.collaboratorStates?.[0].user_id).toBe('a');
+  });
+  it('removes a collaborator mapping marked deleted instead of keeping an active tombstone', () => {
+    const base = { ...emptySnapshot(), collaboratorStates: [{ project_id: 'p', user_id: 'a', state: 'active' }] };
+    const next = applySync(base, { sync_token: 't', full_sync: false,
+      collaborator_states: [{ project_id: 'p', user_id: 'a', state: 'active', is_deleted: true }] });
+    expect(next.collaboratorStates).toEqual([]);
+  });
+});

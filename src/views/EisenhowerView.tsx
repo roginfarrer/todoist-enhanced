@@ -13,6 +13,7 @@ import {
 import { summariseLoad } from '@/domain/load';
 import { bucketOf } from '@/domain/views';
 import { PERSONAL_WORKSPACE, rootItems } from '@/store/selectors';
+import { viewPrefs } from '@/store/prefs';
 import { useStore } from '@/store/store';
 import type { TranslationKey } from '@/i18n';
 
@@ -24,13 +25,14 @@ interface EisenhowerViewProps {
 export function EisenhowerView({ onOpen, onUnestimated }: EisenhowerViewProps) {
   const { t } = useT();
   const hireNoteOpen = useStore((s) => s.hireNote);
-  const { snapshot, items, childrenOf } = useData();
+  const { snapshot, items, childrenOf } = useData('matrix');
   const layout = useStore((s) => s.prefs.eisenhowerLayout);
   const urgentRules = useStore((s) => s.prefs.eisenhowerUrgent);
   const importantPriorities = useStore((s) => s.prefs.eisenhowerImportant);
   const showFuture = useStore((s) => s.prefs.eisenhowerShowFuture);
   const includeSomeday = useStore((s) => s.prefs.eisenhowerIncludeSomeday);
-  const workspaceFilter = useStore((s) => s.prefs.eisenhowerWorkspace);
+  const prefs = useStore((s) => s.prefs);
+  const workspaceFilter = viewPrefs(prefs, 'matrix').filters.workspaces.length ? null : prefs.eisenhowerWorkspace;
   const weekLabel = useStore((s) => s.prefs.weekLabel);
   const roots = useMemo(() => rootItems(items), [items]);
   const visibleItems = useMemo(() => {

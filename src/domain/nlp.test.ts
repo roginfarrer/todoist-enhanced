@@ -72,3 +72,40 @@ describe('what already worked keeps working', () => {
     expect(read('tomorrow at 9h')?.date).toBe('2026-09-29T09:00:00');
   });
 });
+
+
+describe('relative calendar months and singular words', () => {
+  it.each(['dans un mois', 'dans 1 mois', 'in a month', 'in one month'])('reads %s and keeps the exact matched span', (phrase) => {
+    expect(read(`Faire ceci ${phrase}`)).toMatchObject({ date: '2026-10-28', matched: phrase, index: 11, hasTime: false });
+  });
+  it('reads several months and an attached time', () => {
+    expect(read('dans 2 mois à 9h')?.date).toBe('2026-11-28T09:00:00');
+    expect(read('dans une semaine')?.date).toBe('2026-10-05');
+    expect(read('in a day')?.date).toBe('2026-09-29');
+  });
+  it('clamps the date at the end of a short month, including leap years', () => {
+    expect(readNaturalDate('dans un mois', new Date(2026, 0, 31))?.date).toBe('2026-02-28');
+    expect(readNaturalDate('dans un mois', new Date(2028, 0, 31))?.date).toBe('2028-02-29');
+  });
+  it('does not mistake nouns or incomplete phrases for offsets', () => {
+    expect(read('dans une maison')).toBeNull();
+    expect(read('dans un')).toBeNull();
+  });
+});
+
+
+describe('relative hours and minutes', () => {
+  const clock = new Date(2026, 9, 14, 23, 30);
+  it.each(['Appeler dans deux heures', 'Appeler dans 2 heures', 'Appeler dans 2h', 'Call in two hours'])('reads %s across midnight', (text) => {
+    const reading = readNaturalDate(text, clock);
+    expect(reading?.date).toBe('2026-10-15T01:30:00');
+    expect(reading?.hasTime).toBe(true);
+    expect(text.slice(reading!.index, reading!.index + reading!.matched.length)).toBe(reading!.matched);
+  });
+  it('reads a minute offset and leaves plain small hours as durations', () => {
+    expect(readNaturalDate('Appeler dans trente minutes', clock)).toBeNull();
+    expect(readNaturalDate('Appeler dans 30 minutes', clock)?.date).toBe('2026-10-15T00:00:00');
+    expect(readNaturalDate('Appeler dans une heure', clock)?.date).toBe('2026-10-15T00:30:00');
+    expect(readNaturalDate('Écrire 2h', clock)).toBeNull();
+  });
+});

@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { matchesAssignee } from '@/domain/assignees';
+import { PERSONAL_WORKSPACE } from '@/store/selectors';
+import { viewPrefs } from '@/store/prefs';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchCompleted } from '@/api/completed';
 import { useStore } from '@/store/store';
 import { buildDemoCompleted } from '@/demo/demoData';
@@ -30,7 +33,9 @@ interface Loaded {
  * the new one's name, and an answer that arrives after the person has moved on
  * is dropped.
  */
-export function useCompleted(range: Range, enabled: boolean) {
+export function useCompleted(range: Range, enabled: boolean, viewKey?: string) {
+  const snapshot = useStore((state) => state.snapshot);
+  const prefs = useStore((state) => state.prefs);
   const connected = useStore((s) => s.connected);
   const demo = useStore((s) => s.demo);
   const locale = useStore((s) => s.prefs.locale);
@@ -84,9 +89,20 @@ export function useCompleted(range: Range, enabled: boolean) {
   const ready = loaded?.key === key;
   const error = failed?.key === key ? failed.message : null;
 
+  const scoped = useMemo(() => {
+    const inScope = (items: CompletedItem[]) => !viewKey ? items : items.filter((entry) => {
+      const filters = viewPrefs(prefs, viewKey).filters;
+      const projectId = entry.project_id ?? snapshot.items[entry.task_id ?? entry.id]?.project_id;
+      const workspace = projectId ? snapshot.projects[projectId]?.workspace_id ?? PERSONAL_WORKSPACE : PERSONAL_WORKSPACE;
+      return (!filters.workspaces.length || filters.workspaces.includes(workspace)) &&
+        matchesAssignee({ responsible_uid: entry.responsible_uid === undefined
+          ? snapshot.items[entry.task_id ?? entry.id]?.responsible_uid ?? null : entry.responsible_uid }, filters.assignees, snapshot);
+    });
+    return { data: ready ? inScope(loaded.data) : NONE, previous: ready ? inScope(loaded.previous) : NONE };
+  }, [loaded, ready, snapshot, prefs, viewKey]);
   return {
-    data: ready ? loaded.data : NONE,
-    previous: ready ? loaded.previous : NONE,
+    data: scoped.data,
+    previous: scoped.previous,
     loading: enabled && connected && !ready && error === null,
     error,
     retry,

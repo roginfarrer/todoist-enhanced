@@ -1,3 +1,4 @@
+import { canAssign } from '@/domain/assignees';
 /** Tasks: creating, editing, ticking, recurring, deleting and restoring. */
 import { command, addItem, type Command, completeItem, deleteItem, newUuid, reorderItems, uncompleteItem, updateItem } from '@/api/commands';
 import * as idb from '@/db/idb';
@@ -16,7 +17,10 @@ import {
 import type { Slice, TasksSlice } from './types';
 
 /** A subtask created with its parent: a title, and the labels it starts with. */
-interface NewSubtask { content: string; labels?: string[]; estimateMinutes?: number | null }
+interface NewSubtask {
+  content: string; labels?: string[]; estimateMinutes?: number | null;
+  priority?: 1 | 2 | 3 | 4; due?: Item['due'];
+}
 
 /**
  * One task as the screen draws it and the commands that create it.
@@ -83,7 +87,7 @@ function planTask(
     const { subtasks: _ignored, ...parentArgs } = args;
 
     const children = subtasks.map((subtask) => {
-      const { content, labels = [], estimateMinutes: minutes } = typeof subtask === 'string' ? { content: subtask } : subtask;
+      const { content, labels = [], estimateMinutes: minutes, priority, due } = typeof subtask === 'string' ? { content: subtask } as NewSubtask : subtask;
       const patch = minutes === undefined ? { labels } : estimatePatch({ labels }, minutes, storage);
       return {
         tempId: newUuid(),
@@ -92,6 +96,8 @@ function planTask(
           content,
           project_id: parentArgs.project_id,
           parent_id: tempId,
+          ...(priority ? { priority } : {}),
+          ...(due ? { due } : {}),
           ...patch,
         },
       };
@@ -105,8 +111,9 @@ function planTask(
         parent_id: tempId,
         content: String(child.args.content),
         description: '',
-        priority: 1,
-        due: null,
+        responsible_uid: null,
+        priority: (child.args.priority as 1 | 2 | 3 | 4 | undefined) ?? 1,
+        due: provisionalDue(child.args.due as Item['due']),
         deadline: null,
         labels: (child.args.labels as string[] | undefined) ?? [],
         duration: (child.args as Partial<Item>).duration ?? null,
@@ -584,7 +591,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     });
   },
   async createTask(args) {
-    await get().createTasks([args]);
+    return get().createTasks([args]);
   },
   /**
    * Several independent tasks, in one request (#152).
@@ -598,17 +605,24 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   async createTasks(list) {
     const commands: Command[] = [];
     const created: Record<string, Item> = {};
+    const requested: string[] = [];
     for (const args of list) {
       const { snapshot } = get();
+      if (typeof args.responsible_uid === 'string' && !canAssign(snapshot, String(args.project_id ?? snapshot.user?.inbox_project_id ?? ''), args.responsible_uid)) {
+        get().toast(translate(get().prefs.locale, 'assignee.invalid'));
+        return false;
+      }
       const planned = planTask({ ...snapshot, items: { ...snapshot.items, ...created } }, args, get().prefs.estimateStorage === 'duration' && canStoreDurations(snapshot.user) ? 'duration' : 'tag');
+      requested.push(Object.keys(planned.items)[0]);
       commands.push(...planned.commands);
       Object.assign(created, planned.items);
     }
-    if (commands.length === 0) return;
-    await get().apply(commands, (current) => ({
+    if (commands.length === 0) return true;
+    const mapping = await get().apply(commands, (current) => ({
       ...current,
       items: { ...current.items, ...created },
     }));
+    return requested.some((id) => Boolean(get().snapshot.items[mapping[id] ?? id]));
   },
   async setTaskLabels(id, labels) {
     await get().updateTask(id, { labels });

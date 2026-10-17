@@ -12,6 +12,7 @@ import {
 import { useStore } from '@/store/store';
 import { useT } from '@/hooks/useT';
 import type { Snapshot } from '@/domain/types';
+import { PersonAvatar } from './PersonAvatar';
 import { bySectionOrder } from '@/domain/orderKey';
 import { splitPastedList } from '@/domain/pastedList';
 
@@ -22,14 +23,17 @@ const squash = (text: string): string =>
 /** The `@tag` or `#project` the caret is currently inside, if any. */
 function tokenAtCaret(
   value: string, caret: number,
-): { sigil: '@' | '#'; query: string; start: number } | null {
+  withPeople = false,
+): { sigil: '@' | '#' | '+'; query: string; start: number } | null {
   const before = value.slice(0, caret);
   /* A project's name can hold any character but a space (#102); a tag's
-     keeps to letters, digits, `_` and `-`, as the parser reads it. */
-  const match = before.match(/(^|\s)(#)(\S*)$/u) ?? before.match(/(^|\s)(@)([\p{L}\p{N}_/-]*)$/u);
+     keeps to letters, digits, emoji, `_` and `-`, as the parser reads it. */
+  const match = before.match(/(^|\s)(#)(\S*)$/u)
+    ?? (withPeople ? before.match(/(^|\s)(\+)([\p{L}\p{N}_.-]*)$/u) : null)
+    ?? before.match(/(^|\s)(@)((?:[\p{L}\p{N}\p{Extended_Pictographic}_/-]|\u200d|\ufe0f)*)$/u);
   if (!match) return null;
   return {
-    sigil: match[2] as '@' | '#',
+    sigil: match[2] as '@' | '#' | '+',
     query: match[3].toLowerCase(),
     start: caret - match[3].length - 1,
   };
@@ -97,6 +101,11 @@ interface TaskNameFieldProps {
    * and, at most, an estimate.
    */
   estimateOnly?: boolean;
+  /**
+   * Who a task can be given to, for `+name`: asked with the project the name
+   * has settled on. Left out, `+` is an ordinary character and opens nothing.
+   */
+  peopleOf?: (projectId: string | null) => Array<{ id: string; name: string }>;
   /** Whether the field takes the caret when it appears. Defaults to the single-line field doing so. */
   autoFocus?: boolean;
   /** The readings turned down so far, as positions in `value`. */
@@ -129,7 +138,7 @@ interface TaskNameFieldProps {
 export function TaskNameField({
   value, onChange, onSubmit, placeholder, ariaLabel, snapshot, naturalDates,
   refusals, onRefusals, multiline = false, fieldClassName, onBlur, onCancel, fieldRef, onPasteList,
-  estimateOnly = false, autoFocus,
+  estimateOnly = false, autoFocus, peopleOf,
 }: TaskNameFieldProps) {
   const { t } = useT();
   const createLabel = useStore((s) => s.createLabel);
@@ -139,7 +148,7 @@ export function TaskNameField({
   const [caret, setCaret] = useState(0);
   const [pick, setPick] = useState(0);
 
-  const read = parseShorthand(value, snapshot, naturalDates, refusals, dateFormat);
+  const read = parseShorthand(value, snapshot, naturalDates, refusals, dateFormat, peopleOf);
   const tail = estimateOnly ? trailingEstimate(value) : null;
   const ranges = estimateOnly
     ? (tail ? [{ start: tail.start, end: tail.end, kind: 'duration' as const }] : [])
@@ -147,7 +156,7 @@ export function TaskNameField({
   /* The word whose list Escape put away: it stays away until the text changes,
      however often the caret is read again. */
   const [dismissed, setDismissed] = useState<{ value: string; start: number } | null>(null);
-  const found = estimateOnly ? null : tokenAtCaret(value, caret);
+  const found = estimateOnly ? null : tokenAtCaret(value, caret, !!peopleOf);
   const token = found && dismissed && dismissed.value === value && dismissed.start === found.start ? null : found;
 
   /**
@@ -162,7 +171,7 @@ export function TaskNameField({
    */
   const live = refusals.filter((refusal) => {
     const without = refusals.filter((other) => other !== refusal);
-    return parseShorthand(value, snapshot, naturalDates, without, dateFormat).ranges.some(
+    return parseShorthand(value, snapshot, naturalDates, without, dateFormat, peopleOf).ranges.some(
       (mark) => mark.start === refusal.start && mark.end === refusal.end,
     );
   });
@@ -258,6 +267,25 @@ export function TaskNameField({
           .map(sectionOption(p)));
 
       return [...withSections, ...elsewhere].slice(0, 60);
+    }
+    if (token.sigil === '+') {
+      const everyone = peopleOf ? peopleOf(read.projectId) : [];
+      return everyone
+        .filter((person) => squash(person.name).includes(squash(token.query)))
+        .slice(0, 8)
+        .map((person) => ({
+          id: person.id,
+          /* The first name when it says who, the whole name run together
+             when two people share it. */
+          name: everyone.filter((o) => squash(o.name.split(/\s+/)[0]) === squash(person.name.split(/\s+/)[0])).length > 1
+            ? person.name.replace(/\s+/g, '') : person.name.split(/\s+/)[0],
+          label: person.name,
+          hint: undefined as string | undefined,
+          color: 'charcoal',
+          sigil: '+' as const,
+          isNew: false,
+          personId: person.id as string | undefined,
+        }));
     }
     const known = Object.values(snapshot.labels)
       .filter((l) => !l.is_deleted && !l.name.startsWith('est-'))
@@ -574,7 +602,7 @@ export function TaskNameField({
             <Icon name="search" size="sm" />
             {token.query
               ? <span className="namepicker-query">{token.sigil}{token.query}</span>
-              : <span className="namepicker-placeholder">{t(token.sigil === '#' ? 'composer.searchProjects' : 'composer.searchTags')}</span>}
+              : <span className="namepicker-placeholder">{t(token.sigil === '#' ? 'composer.searchProjects' : token.sigil === '+' ? 'composer.searchPeople' : 'composer.searchTags')}</span>}
           </div>
           {options.map((option, index) => (
             <button
@@ -585,7 +613,9 @@ export function TaskNameField({
               onMouseDown={(e) => { e.preventDefault(); choose(option.name, option.isNew); }}
               onMouseEnter={() => setPick(index)}
             >
-              {option.hint
+              {'personId' in option && option.personId
+                ? <PersonAvatar id={option.personId} decorative />
+                : option.hint
                 ? <Icon name="section" size="sm" className="taglabel" style={markerStyle(option.color, false)} />
                 : option.sigil === '#'
                   ? <span className="hash" style={markerStyle(option.color)}>#</span>

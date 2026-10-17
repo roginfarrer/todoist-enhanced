@@ -9,6 +9,7 @@ import { useStore } from '@/store/store';
 import { colorValue, markerStyle } from '@/domain/colors';
 import { readProjectIcon, stripProjectIcon, withProjectIcon } from '@/domain/projectIcons';
 import { parentChoices } from '@/domain/projectParents';
+import { WorkspaceAvatar } from '../WorkspaceFilter';
 import { accessChoices, accessOf, defaultAccess } from '@/domain/projectAccess';
 import type { TranslationKey } from '@/i18n';
 
@@ -123,7 +124,11 @@ export function ProjectSheet({ target, onClose }: ProjectSheetProps) {
   const destinations = useMemo(
     () => [
       { value: PERSONAL, label: t('nav.myProjects') },
-      ...workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
+      ...workspaces.map((workspace) => ({
+        value: workspace.id,
+        label: workspace.name,
+        visual: <WorkspaceAvatar small id={workspace.id} name={workspace.name} logo={workspace.logo_big} />,
+      })),
     ],
     [workspaces, t],
   );

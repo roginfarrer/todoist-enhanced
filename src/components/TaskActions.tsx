@@ -1,3 +1,6 @@
+import { AssigneeField } from './AssigneeField';
+import { assignees } from '@/domain/sharing';
+import { useProjectPeople } from '@/hooks/useProjectPeople';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
@@ -161,6 +164,8 @@ interface TaskActionsProps {
  */
 export function TaskActions({ item, childrenOf, onOpen, onKeep }: TaskActionsProps) {
   const { t, locale } = useT();
+  const warmPeople = useProjectPeople(item.project_id, false);
+  const assignTask = useStore((state) => state.assignTask);
   const updateTask = useStore((s) => s.updateTask);
   const removeTask = useStore((s) => s.removeTask);
   const skipOccurrence = useStore((s) => s.skipOccurrence);
@@ -721,7 +726,7 @@ export function TaskActions({ item, childrenOf, onOpen, onKeep }: TaskActionsPro
   );
 
   return (
-    <span className="trow-actions" ref={ref} onClick={(e) => e.stopPropagation()}>
+    <span className="trow-actions" ref={ref} onPointerEnter={() => void warmPeople()} onClick={(e) => e.stopPropagation()}>
       {menu === 'estimate' && !phone ? (
         /* Opens empty, with the current duration shown as the placeholder: the
            point of the field is to type a new one, and Enter on nothing leaves
@@ -779,7 +784,13 @@ export function TaskActions({ item, childrenOf, onOpen, onKeep }: TaskActionsPro
         <Icon name="project" size="sm" />
       </button>
 
-      <button
+      {(assignees(snapshot, item.project_id).length > 0 || item.responsible_uid) && (
+        <span className={`row-assignee${item.responsible_uid ? ' assigned' : ''}`}>
+          <AssigneeField projectId={item.project_id} value={item.responsible_uid}
+            onChange={(next) => void assignTask(item.id, next)} iconOnly />
+        </span>
+      )}
+      <button className="row-more"
         aria-label={t('task.moreActions')}
         title={t('task.moreActions')}
         aria-expanded={menu === 'more'}

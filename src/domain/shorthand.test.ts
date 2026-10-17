@@ -131,3 +131,52 @@ describe('the estimate marked at the end of a subtask (#163)', () => {
     expect(trailingEstimate('(5)')).toBeNull();
   });
 });
+
+describe('explicit duration phrases', () => {
+  it.each(['Écrire (deux heures)', 'Write (two hours)', 'Write for two hours', 'Écrire pendant deux heures'])('takes %s as an estimate without setting a date', (text) => {
+    const value = parseShorthand(text, emptySnapshot(), true);
+    expect(value.minutes).toBe(120);
+    expect(value.date).toBeNull();
+    expect(value.content).toMatch(/^(Écrire|Write)$/);
+  });
+  it('keeps rejected duration phrases in the title', () => {
+    const text = 'Write for one hour';
+    const first = parseShorthand(text, emptySnapshot(), true);
+    const value = parseShorthand(text, emptySnapshot(), true, first.ranges);
+    expect(value.minutes).toBeNull(); expect(value.content).toBe(text);
+  });
+});
+
+describe('a tag that starts with an emoji (#263)', () => {
+  it('is read, marked and taken out of the title', () => {
+    const result = read('Call Anne @🏡home');
+    expect(result.labels).toEqual(['🏡home']);
+    expect(result.content).toBe('Call Anne');
+  });
+  it('reads a tag made of an emoji alone', () => {
+    expect(read('Buy milk @🛒').labels).toEqual(['🛒']);
+  });
+  it('still leaves an e-mail address alone', () => {
+    expect(read('Write to me@example.com').labels).toEqual([]);
+  });
+});
+
+describe('+name gives the task to a person of the project (#269)', () => {
+  const people = () => [{ id: 'u1', name: 'Anne Martin' }, { id: 'u2', name: 'Bob Stone' }];
+  const withPeople = (raw: string) => parseShorthand(raw, snapshot, false, [], 'dmy', people);
+  it('reads a first name, and takes it out of the title', () => {
+    const result = withPeople('Send the file +Anne');
+    expect(result.assigneeId).toBe('u1');
+    expect(result.content).toBe('Send the file');
+  });
+  it('reads the whole name run together, without accents or case', () => {
+    expect(withPeople('Call +bobstone').assigneeId).toBe('u2');
+  });
+  it('leaves a plus that names nobody alone', () => {
+    expect(withPeople('Add 1 +1 and +Zed').assigneeId).toBeNull();
+    expect(withPeople('Add 1 +1 and +Zed').content).toBe('Add 1 +1 and +Zed');
+  });
+  it('reads nothing where nobody can be given a task', () => {
+    expect(read('Send the file +Anne').assigneeId).toBeNull();
+  });
+});

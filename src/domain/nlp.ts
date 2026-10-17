@@ -1,3 +1,4 @@
+import { addMonths } from 'date-fns';
 import { toApiDate, type DateFormat } from './dates';
 import { MONTH_WORDS } from './dateVocabulary';
 
@@ -45,6 +46,7 @@ export interface DateReadingOptions {
    * decides it: it is a setting.
    */
   dateFormat?: DateFormat;
+  bareTime?: boolean;
 }
 
 /**
@@ -86,16 +88,17 @@ export function readTime(text: string): TimeReading | null {
     return { start: match.index! + lead, end: match.index! + raw.length };
   };
 
-  const ampm = text.match(/\b(?:at|à|a)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
+  const ampm = text.match(/(?<![\p{L}\p{N}_])(?:at|à|a)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/iu);
   if (ampm) {
+    if (Number(ampm[1]) < 1 || Number(ampm[1]) > 12 || Number(ampm[2] ?? 0) > 59) return null;
     let hours = Number(ampm[1]) % 12;
     if (ampm[3].toLowerCase() === 'pm') hours += 12;
     return { hours, minutes: Number(ampm[2] ?? 0), ...span(ampm) };
   }
-  const hm = text.match(/\b(?:at|à|a)?\s*(\d{1,2})\s*[h:]\s*(\d{2})?\b/i);
+  const hm = text.match(/(?<![\p{L}\p{N}_])(?:at|à|a)?\s*(\d{1,2})\s*[h:]\s*(\d{2})?\b/iu);
   if (hm) {
     const hours = Number(hm[1]);
-    if (hours > 23) return null;
+    if (hours > 23 || Number(hm[2] ?? 0) > 59) return null;
     return { hours, minutes: Number(hm[2] ?? 0), ...span(hm) };
   }
 
@@ -176,6 +179,23 @@ export function readNaturalDate(
     };
   };
 
+  // Relative hours/minutes are an offset from now, never a duration estimate.
+  const amounts: Record<string, number> = { un: 1, une: 1, a: 1, an: 1, one: 1,
+    deux: 2, two: 2, trois: 3, three: 3, quatre: 4, four: 4, cinq: 5, five: 5,
+    six: 6, sept: 7, seven: 7, huit: 8, eight: 8, neuf: 9, nine: 9,
+    dix: 10, ten: 10, onze: 11, eleven: 11, douze: 12, twelve: 12 };
+  const offset = text.match(/\b(?:in|dans)\s+(\d{1,3}|un|une|a|an|one|deux|two|trois|three|quatre|four|cinq|five|six|sept|seven|huit|eight|neuf|nine|dix|ten|onze|eleven|douze|twelve)\s*(hours?|heures?|h|minutes?|mins?|min|mn)\b/);
+  if (offset) {
+    const count = /^\d+$/.test(offset[1]) ? Number(offset[1]) : amounts[offset[1]];
+    if (count > 0) {
+      const minutes = count * (/^(?:h|heure|hour)/.test(offset[2]) ? 60 : 1);
+      const when = new Date(now.getTime() + minutes * 60_000);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return { date: `${toApiDate(when)}T${pad(when.getHours())}:${pad(when.getMinutes())}:00`,
+        matched: raw.slice(offset.index!, offset.index! + offset[0].length), index: offset.index!, hasTime: true };
+    }
+  }
+
   // "today" / "tomorrow" / the day after
   const plain: Array<[RegExp, number]> = [
     /* Today, said by naming a part of it. "ce soir" is the commonest way
@@ -198,11 +218,12 @@ export function readNaturalDate(
   }
 
   // "in 3 days" / "dans 2 semaines"
-  const relative = text.match(/\b(?:in|dans)\s+(\d{1,3})\s*(day|days|jour|jours|week|weeks|semaine|semaines)\b/);
+  const relative = text.match(/\b(?:in|dans)\s+(\d{1,3}|un|une|a|an|one)\s+(days?|jours?|weeks?|semaines?|months?|mois)\b/);
   if (relative) {
-    const count = Number(relative[1]);
+    const count = /^\d+$/.test(relative[1]) ? Number(relative[1]) : 1;
     const weeks = relative[2].startsWith('week') || relative[2].startsWith('semaine');
-    return found(addDays(today, count * (weeks ? 7 : 1)), relative);
+    const months = relative[2].startsWith('month') || relative[2] === 'mois';
+    return found(months ? addMonths(today, count) : addDays(today, count * (weeks ? 7 : 1)), relative);
   }
 
   // A weekday name, in either language: the next one that is not today.
@@ -254,6 +275,23 @@ export function readNaturalDate(
         ? new Date(year + 1, month, dayOfMonth)
         : day;
       return found(future, numeric);
+    }
+  }
+
+  if (options.bareTime !== false) {
+    const time = readTime(text);
+    if (time) {
+      const token = text.slice(time.start, time.end);
+      // Small h-values remain durations; explicit prefixes and clock formats are unambiguous.
+      const explicit = /^(?:at|a)\s/.test(token) || /:|(?:am|pm)\b/.test(token);
+      const clock = /\d/.test(token) && (explicit || time.hours >= 7);
+      if (clock) {
+        const day = new Date(today);
+        day.setHours(time.hours, time.minutes, 0, 0);
+        if (day <= now) day.setDate(day.getDate() + 1);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return { date: `${toApiDate(day)}T${pad(time.hours)}:${pad(time.minutes)}:00`, matched: raw.slice(time.start, time.end), index: time.start, hasTime: true };
+      }
     }
   }
 

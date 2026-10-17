@@ -31,6 +31,11 @@ const PAGE_LIMIT = 200;
  */
 const CONCURRENT_WINDOWS = 4;
 
+/** Narrows a query to one project, for a page that shows only its own. */
+export interface CompletedScope {
+  project_id?: string;
+}
+
 interface CompletedResponse {
   items: CompletedItem[];
   next_cursor?: string | null;
@@ -40,6 +45,7 @@ async function fetchWindow(
   since: Date,
   until: Date,
   signal?: AbortSignal,
+  scope: CompletedScope = {},
 ): Promise<CompletedItem[]> {
   const out: CompletedItem[] = [];
   let cursor: string | undefined;
@@ -58,6 +64,7 @@ async function fetchWindow(
         until: until.toISOString(),
         limit: PAGE_LIMIT,
         cursor,
+        ...scope,
       },
       signal,
     });
@@ -109,15 +116,16 @@ async function fetchRange(
   until: Date,
   days: number,
   signal?: AbortSignal,
+  scope: CompletedScope = {},
 ): Promise<CompletedItem[]> {
   try {
-    return await fetchWindow(since, until, signal);
+    return await fetchWindow(since, until, signal, scope);
   } catch (error) {
     const narrower = Math.floor(days / 2);
     if (!(error instanceof ApiError) || error.status !== 400 || narrower < MIN_WINDOW_DAYS) throw error;
     const results: CompletedItem[] = [];
     for (const window of windowsOf(since, until, narrower)) {
-      results.push(...await fetchRange(window.since, window.until, narrower, signal));
+      results.push(...await fetchRange(window.since, window.until, narrower, signal, scope));
     }
     return unique(results);
   }
@@ -127,9 +135,10 @@ export async function fetchCompleted(
   since: Date,
   until: Date,
   signal?: AbortSignal,
+  scope: CompletedScope = {},
 ): Promise<CompletedItem[]> {
   const span = differenceInCalendarDays(until, since);
-  if (span <= WINDOW_DAYS) return fetchRange(since, until, WINDOW_DAYS, signal);
+  if (span <= WINDOW_DAYS) return fetchRange(since, until, WINDOW_DAYS, signal, scope);
 
   // Work out every window first, then fetch them a few at a time.
   const windows = windowsOf(since, until, WINDOW_DAYS);
@@ -138,7 +147,7 @@ export async function fetchCompleted(
   for (let at = 0; at < windows.length; at += CONCURRENT_WINDOWS) {
     const batch = windows.slice(at, at + CONCURRENT_WINDOWS);
     const pages = await Promise.all(
-      batch.map((window) => fetchRange(window.since, window.until, WINDOW_DAYS, signal)),
+      batch.map((window) => fetchRange(window.since, window.until, WINDOW_DAYS, signal, scope)),
     );
     for (const page of pages) results.push(...page);
   }

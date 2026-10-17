@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Overlay } from './Overlay';
 import { Icon } from '../Icon';
-import { EstimateBulk } from './Unestimated';
+import { EstimateField } from '../EstimateField';
 import { useT } from '@/hooks/useT';
 import { useData } from '@/hooks/useData';
 import { useStore } from '@/store/store';
@@ -278,12 +278,31 @@ export function Issues({ open, onClose, onOpen }: IssuesProps) {
         {incomplete.length > 0 && (
           <>
             <h3 className="notifsub">{t('issues.tabToComplete')} ({incomplete.length})</h3>
-            <EstimateBulk
-              items={incomplete.slice(0, 100)}
-              resetKey={open}
-              onOpen={(id) => { onOpen(id); onClose(); }}
-              onDone={onClose}
-            />
+            <div className="conflicts">
+              {incomplete.slice(0, 100).map((item) => (
+                <div className="conflict" key={item.id}>
+                  <span className={`check p${toDisplayPriority(item.priority)}`} aria-hidden="true">
+                    <Icon name="check" />
+                  </span>
+                  <div>
+                    <strong>
+                      <button className="conflict-open" onClick={() => { onOpen(item.id); onClose(); }}>
+                        {plainTitle(item.content)}
+                      </button>
+                    </strong>
+                    <p>{t('issues.noEstimate')}</p>
+                    {/* The answer goes in the card, where the buttons of the
+                        other conflicts are: one entry, saved as it is given. */}
+                    <div className="opts conflict-estimate">
+                      <EstimateField
+                        minutes={null}
+                        onCommit={(minutes) => { if (minutes !== null) void updateTask(item.id, { estimateMinutes: minutes }); }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </>
         )}
       </div>

@@ -1289,3 +1289,88 @@ kbd{padding:2px 5px;border:1px solid var(--border-strong);border-radius:var(--r-
   .mobile-nav .fab i{width:46px;height:46px;display:grid;place-items:center;border-radius:var(--r-full);
     background:var(--accent);box-shadow:0 2px 8px rgba(28,25,23,.16)}
 }
+
+/* Assignee controls (#203). */
+.assignee-badge { display: inline-flex; vertical-align: middle; margin-inline: 5px; }
+.person-avatar { display: inline-flex; align-items: center; justify-content: center; width: 23px; height: 23px; border-radius: 50%; overflow: hidden; background: var(--accent-soft); color: var(--text); font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.person-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.person-avatar.unassigned { background: transparent; color: var(--muted); }
+.row-assignee { display: inline-flex; align-items: center; }
+.row-assignee.assigned { order: 0; visibility: visible; }
+.row-more { order: 1; }
+.row-assignee .as-icon .fselect-face { width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border: 0; background: transparent; border-radius: var(--r-sm); box-shadow: none; min-height: 30px; }
+.row-assignee .as-icon .fselect-face:hover { background: var(--hover); }
+.col .trow-end:has(.row-assignee.assigned) { visibility: visible; }
+.col .task:not(:hover):not(:focus-within) .trow-end:has(.row-assignee.assigned) { background: transparent; box-shadow: none; }
+
+.multiselect { position: relative; min-width: 0; margin: 8px 0; }
+.multiselect > button { width: 100%; gap: 10px; text-align: left; }
+.multiselect .fselect-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.multiselect-options { padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface, var(--paper, #fff)); max-height: 240px; overflow-y: auto; }
+.multiselect-options label { display: flex; align-items: center; gap: 10px; padding: 7px; cursor: pointer; }
+.multiselect-options input { accent-color: var(--accent); }
+
+.multiselect-options label { position: relative; border-radius: 7px; }
+.multiselect-options label:hover { background: var(--hover); }
+.multiselect-label { flex: 1; min-width: 0; }
+.multiselect-options input { position: absolute; width: 1px; height: 1px; opacity: 0; right: 12px; }
+.multiselect-check { width: 19px; height: 19px; display: grid; place-items: center; border: 1.5px solid var(--border-strong); border-radius: 5px; color: transparent; flex-shrink: 0; }
+.multiselect-options input:checked + .multiselect-check { color: white; background: var(--accent); border-color: var(--accent); }
+.multiselect-options input:focus-visible + .multiselect-check { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.upcoming-extend { display: grid; gap: 8px; justify-items: center; }
+
+.assignee-readonly { display: inline-flex; align-items: center; gap: 8px; }
+
+.row-assignee .as-icon .fselect-face:is(:hover, .open) { border: 0; box-shadow: none; background: var(--hover); }
+.row-assignee.assigned .as-icon .fselect-face { border-radius: 50%; }
+.row-assignee.assigned .as-icon .fselect-face:is(:hover, .open) { background: transparent; }
+.multiselect-all { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; margin-bottom: 5px; border: 0; border-radius: 8px; background: var(--surface); color: var(--text); text-align: left; }
+.multiselect-all[aria-pressed="true"] { background: var(--btn-soft); }
+.multiselect-all:hover { background: var(--hover); }
+
+.row-assignee:not(.assigned) .fselect-face:is(:hover, .open) .person-avatar { color: var(--text); }
+.col .trow-end .row-assignee .fselect-face { width: 26px; height: 26px; min-height: 26px; border-radius: 8px; }
+.col .trow-end .row-assignee.assigned .fselect-face { border-radius: 50%; }
+
+.multiselect-options { box-shadow: var(--sh-md); box-sizing: border-box; }
+.workspace-avatar { width: 23px; height: 23px; display: grid; place-items: center; flex-shrink: 0; border-radius: 50%; overflow: hidden; color: #fff; font-size: 11px; font-weight: 600; }
+.workspace-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.review-title-line { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.review-title-line .ttitle { min-width: 0; }
+.review-title-line .assignee-badge { flex-shrink: 0; margin: 0; }
+
+.review-title-line .person-avatar { width: 18px; height: 18px; font-size: 9px; }
+
+/* Compact review controls, and quiet filter hover states. */
+.displaypanel .fselect-face:hover,
+.multiselect > .fselect-face:hover { border: 0; box-shadow: 0 0 0 1px var(--border) inset; background: var(--hover); }
+.multiselect > .fselect-face > .ic { flex-shrink: 0; color: var(--muted); }
+.page .reviewhead { grid-template-columns: minmax(0, 1fr) auto; }
+.review-controls { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 10px; }
+.review-controls .reviewcadence { flex-shrink: 0; }
+.reviewhead .reviewweek { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
+.multiselect.as-toolbar { margin: 0; min-width: 0; }
+.multiselect.as-toolbar > .fselect-face { width: auto; max-width: 300px; min-height: 34px; padding: 0 12px; gap: 7px; border: 0; border-radius: 99px; background: var(--btn-soft); box-shadow: none; font-size: 13px; }
+.multiselect.as-toolbar > .fselect-face:is(:hover, :active) { background: var(--hover); box-shadow: none; border: 0; }
+.multiselect.as-toolbar .fselect-value { flex: 0 1 auto; }
+@media (max-width: 720px) {
+  .page .reviewhead { grid-template-columns: minmax(0, 1fr); }
+  .review-controls { grid-column: 1; grid-row: 2; width: 100%; gap: 8px; }
+  .review-controls .multiselect { flex: 1; }
+  .multiselect.as-toolbar > .fselect-face { width: 100%; padding: 0 8px; }
+  .review-controls .fselect-face > span:not(.fselect-value) { display: none; }
+  .reviewhead .reviewweek { grid-row: 3; justify-self: start; }
+}
+
+/* Task properties use the same pill shape as the rest of the interface. */
+.detail-side .prop .fselect-face,
+.detail-side .prop .estinput,
+.detail-side .priopill { border-radius: 9999px; }
+.detail-side .prop .fselect-face:is(:hover, .open),
+.detail-side .prop .estinput:hover { border: 0; box-shadow: 0 0 0 1px var(--border) inset; background: var(--hover); }
+.dash-layout-edit.btn { gap: 0; }
+.dash-layout-edit .edit-layout-label { max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; transition: max-width .18s ease, opacity .18s ease, margin .18s ease; }
+.dash-layout-edit:is(:hover, :focus-visible, .is-editing) .edit-layout-label { max-width: 180px; opacity: 1; margin-left: 8px; }
+.dashboard-layout-tools { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+@media (prefers-reduced-motion: reduce) { .dash-layout-edit .edit-layout-label { transition: none; } }

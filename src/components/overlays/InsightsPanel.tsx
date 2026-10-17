@@ -20,16 +20,18 @@ interface InsightsPanelProps {
   onClose: () => void;
   /** The page this panel is summarising, named so it never lies about scope. */
   contextLabel: string;
+  viewKey?: string;
+  projectId?: string;
   items: Item[];
   onOpenTask: (id: string) => void;
 }
 
 /** The contextual Insights sheet, adapted to whichever page opened it. */
 export function InsightsPanel({
-  open, onClose, contextLabel, items, onOpenTask,
+  open, onClose, contextLabel, items, onOpenTask, viewKey, projectId,
 }: InsightsPanelProps) {
   const { t, locale } = useT();
-  const { snapshot, childrenOf } = useData();
+  const { snapshot, childrenOf } = useData(viewKey);
   /* The seven calendar days ending today, not the week the calendar is in and
      not seven weeks: today and the six days before it, every one of them drawn
      even when nothing was finished on it (#176). Built from calendar days, so
@@ -39,7 +41,9 @@ export function InsightsPanel({
     const now = new Date(`${today}T12:00:00`);
     return { since: startOfDay(addDays(now, -6)), until: endOfDay(now) };
   }, [today]);
-  const { data: completed, loading, error, retry } = useCompleted(window7, open);
+  const { data: history, loading, error, retry } = useCompleted(window7, open, viewKey);
+
+  const completed = useMemo(() => projectId ? history.filter((entry) => entry.project_id === projectId) : history, [history, projectId]);
 
   const summary = useMemo(
     () => summariseInsights(completed, items, snapshot),

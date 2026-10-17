@@ -1,3 +1,4 @@
+import { InsightsButton } from '@/components/InsightsButton';
 import { HireNote } from '@/components/HireNote';
 import { useMemo } from 'react';
 import { PageHeader } from '@/components/PageHeader';
@@ -16,7 +17,7 @@ import { viewPrefs } from '@/store/prefs';
 import { applyFilters, datedRoots, sortItems } from '@/store/selectors';
 import { anytimeItems, bucketOf, groupWeek, weekItems } from '@/domain/views';
 import { summariseLoad, weeklyCapacity } from '@/domain/load';
-import { toApiDate } from '@/domain/dates';
+import { toApiDate, isToday } from '@/domain/dates';
 import { dueForDate } from '@/domain/recurrence';
 import { weekLabel } from '@/domain/types';
 import { placementFor, type TaskPlacement } from '@/domain/dnd';
@@ -71,7 +72,7 @@ function WeekBody({
 }: WeekViewProps) {
   const { t } = useT();
   const timePill = useTimePill();
-  const { snapshot, items, childrenOf } = useData();
+  const { snapshot, items, childrenOf } = useData(scope === 'today' ? 'today' : 'week');
   const prefs = useStore((s) => s.prefs);
   const updateMany = useStore((s) => s.updateMany);
   const hireNoteOpen = useStore((s) => s.hireNote);
@@ -96,8 +97,9 @@ function WeekBody({
     return inScope;
   }, [items, snapshot, scope]);
   const scoped = useMemo(
-    () => applyFilters(pool, current.filters, snapshot, childrenOf),
-    [pool, current.filters, snapshot, childrenOf],
+    () => applyFilters(pool, { ...current.filters, includeScheduled: true }, snapshot, childrenOf)
+      .filter((item) => scope !== 'all' || current.filters.includeScheduled || !isToday(item)),
+    [pool, current.filters, snapshot, childrenOf, scope],
   );
 
   const groups = useMemo(
@@ -210,10 +212,7 @@ function WeekBody({
               modes={['list', 'board']}
               groups={['none', 'project', 'priority', 'label', 'estimate']}
             />
-            <button className="btn accent" onClick={onInsights}>
-              <Icon name="trend" />
-              {t('toolbar.insights')}
-            </button>
+            <InsightsButton onClick={onInsights} />
           </>
         }
         load={load}

@@ -1,3 +1,4 @@
+import { DashboardDisplayMenu } from '@/components/DashboardDisplayMenu';
 import { HireNote } from '@/components/HireNote';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
@@ -58,7 +59,6 @@ function firstBest(values: number[]): number {
 
 export function InsightsView({ onOpen }: { onOpen?: (id: string) => void }) {
   const { t, locale } = useT();
-  const { snapshot, items } = useData();
   const [period, setPeriod] = useState<Period>('week');
   /* Which occurrence of the period: 0 is the one holding today, -1 the one
      before. The arrows move it; picking a preset resets it. */
@@ -68,6 +68,7 @@ export function InsightsView({ onOpen }: { onOpen?: (id: string) => void }) {
   // logbook rather than landing on the overview and asking for a second click.
   const route = useRoute();
   const [tab, setTab] = useState<Tab>(route.id === 'logbook' ? 'logbook' : 'overview');
+  const { snapshot, items } = useData(tab === 'overview' ? 'dashboard' : undefined);
 
   /* The initialiser above only runs on mount, so arriving from the menu while
      the page was already open left the tab where it was. */
@@ -79,7 +80,7 @@ export function InsightsView({ onOpen }: { onOpen?: (id: string) => void }) {
     () => rangeFor(period, offset, custom, startDay),
     [period, offset, custom, startDay],
   );
-  const { data: completed, previous, loading, error, retry } = useCompleted(range, true);
+  const { data: completed, previous, loading, error, retry } = useCompleted(range, true, tab === 'overview' ? 'dashboard' : undefined);
 
   const pickPreset = (next: Period) => { setPeriod(next); setOffset(0); };
   /* Editing either date makes the range a custom one, starting from whatever
@@ -434,25 +435,26 @@ export function InsightsView({ onOpen }: { onOpen?: (id: string) => void }) {
           <p className="psub">{t(tab === 'logbook' ? 'insights.logbookSub' : 'insights.dashboardSub')}</p>
         </div>
         <div className="pactions">
+          {tab === 'overview' && <>
+            <button className={`btn dash-layout-edit${editing ? ' is-editing' : ''}`}
+              aria-label={t(editing ? 'dashboard.doneEditing' : 'dashboard.editLayout')}
+              aria-pressed={editing} onClick={() => setEditing((on) => !on)}>
+              <Icon name={editing ? 'check' : 'edit'} size="sm" />
+              <span className="edit-layout-label">{t(editing ? 'dashboard.doneEditing' : 'dashboard.editLayout')}</span>
+            </button>
+            <DashboardDisplayMenu />
+          </>}
           {/* The two pages are one subject: each points at the other. */}
           <button className="btn" onClick={() => (tab === 'logbook' ? navigate('insights') : navigate('insights', 'logbook'))}>
             <Icon name={tab === 'logbook' ? 'trend' : 'tasks'} size="sm" />
             {t(tab === 'logbook' ? 'nav.dashboard' : 'insights.logbook')}
           </button>
-          {tab === 'overview' && editing && (
-              <button className="btn" disabled={isDefaultDashboardOrder(order)} onClick={resetLayout}>
-                {t('dashboard.resetLayout')}
-              </button>
-            )}
-          {tab === 'overview' && (
-            <button className="btn" aria-pressed={editing} onClick={() => setEditing((on) => !on)}>
-              <Icon name={editing ? 'check' : 'sliders'} size="sm" />
-              {editing ? t('dashboard.doneEditing') : t('dashboard.editLayout')}
-            </button>
-          )}
         </div>
       </div>
       <HireNote />
+      {tab === 'overview' && editing && <div className="dashboard-layout-tools">
+        <button className="btn" disabled={isDefaultDashboardOrder(order)} onClick={resetLayout}>{t('dashboard.resetLayout')}</button>
+      </div>}
 
       <div className="viewbar periodbar">
         <span className="pager">

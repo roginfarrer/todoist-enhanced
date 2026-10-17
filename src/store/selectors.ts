@@ -1,3 +1,4 @@
+import { matchesAssignee, assigneeName } from '@/domain/assignees';
 import {
   toDisplayPriority,
   type GroupKey, type Item, type Project, type Snapshot,
@@ -53,7 +54,10 @@ export function openItems(snapshot: Snapshot): Item[] {
 }
 
 /** Top-level tasks only: subtasks are rendered under their parent, not beside it. */
-export const rootItems = (items: Item[]): Item[] => items.filter((i) => !i.parent_id);
+export const rootItems = (items: Item[]): Item[] => {
+  const visible = new Set(items.map((item) => item.id));
+  return items.filter((item) => !item.parent_id || !visible.has(item.parent_id));
+};
 
 /**
  * The roots of a date page (My week, Today, Upcoming): the top-level tasks,
@@ -65,10 +69,11 @@ export const rootItems = (items: Item[]): Item[] => items.filter((i) => !i.paren
  */
 export function datedRoots(items: Item[], snapshot: Snapshot): Item[] {
   const now = new Date();
+  const visible = new Set(items.map((item) => item.id));
   /* A day, or the overdue pile (overdue tasks share one block), or nothing. */
   const dayOf = (item: Item) => !item.due ? '' : bucketOf(item, now) === 'overdue' ? 'overdue' : item.due.date.slice(0, 10);
   return items.filter((item) => {
-    if (!item.parent_id) return true;
+    if (!item.parent_id || !visible.has(item.parent_id)) return true;
     if (!item.due) return false;
     for (let id: string | null | undefined = item.parent_id, hops = 0; id && hops < 50; hops++) {
       const parent: Item | undefined = snapshot.items[id];
@@ -86,6 +91,7 @@ export function applyFilters(
   childrenOf: (id: string) => Item[],
 ): Item[] {
   return items.filter((item) => {
+    if (!matchesAssignee(item, filters.assignees, snapshot)) return false;
     if (filters.projects.length > 0 && !filters.projects.includes(item.project_id)) return false;
 
     if (filters.workspaces.length > 0) {
@@ -117,6 +123,7 @@ export function applyFilters(
 
 export function countActiveFilters(filters: ViewFilters): number {
   let count = 0;
+  if (filters.assignees != null) count += 1;
   if (filters.projects.length) count += 1;
   if (filters.workspaces.length) count += 1;
   if (filters.labels.length) count += 1;
@@ -246,6 +253,13 @@ export function sortItems(
         return (a.added_at ?? '').localeCompare(b.added_at ?? '') * direction
           || manualCompare(a, b, order);
       }
+      case 'assignee': {
+        if (!a.responsible_uid && b.responsible_uid) return 1;
+        if (a.responsible_uid && !b.responsible_uid) return -1;
+        return (snapshot ? assigneeName(snapshot, a.responsible_uid).localeCompare(assigneeName(snapshot, b.responsible_uid)) : 0)
+          || (a.responsible_uid ?? '').localeCompare(b.responsible_uid ?? '')
+          || manualCompare(a, b, order);
+      }
       case 'alphabetical':
         return a.content.localeCompare(b.content);
       case 'estimate-asc':
@@ -322,6 +336,8 @@ export function groupItems(
     noSection: string;
     noEstimate: string;
     noLabel: string;
+    unassigned?: string;
+    unavailable?: string;
     priority: (p: number) => string;
     day: (d: Date | null) => string;
     /** A week's title, from its Monday; a month's, from its first day. */
@@ -343,6 +359,10 @@ export function groupItems(
 
   for (const item of items) {
     switch (group) {
+      case 'assignee': {
+        push(item.responsible_uid ?? 'none', item.responsible_uid ? assigneeName(snapshot, item.responsible_uid, labels.unavailable) : (labels.unassigned ?? labels.none), item);
+        break;
+      }
       case 'project': {
         const project: Project | undefined = snapshot.projects[item.project_id];
         push(item.project_id, project?.name ?? labels.noProject, item);
@@ -402,6 +422,9 @@ export function groupItems(
      inside each group. Taken from the order the tasks arrived in, the groups
      followed the sort — sorted by priority, the project holding a P1 jumped
      to the top of a list grouped by project. */
+  if (group === 'assignee') {
+    result.sort((a, b) => a.key === 'none' ? (b.key === 'none' ? 0 : 1) : b.key === 'none' ? -1 : a.title.localeCompare(b.title) || a.key.localeCompare(b.key));
+  }
   if (group === 'project' || group === 'section' || group === 'workspace') {
     const rank = placeRanks(snapshot);
     const place = group === 'project' ? rank.project : group === 'section' ? rank.section : rank.workspace;
@@ -499,6 +522,8 @@ export function placeRanks(snapshot: Snapshot): {
 export interface ProjectNode {
   project: Project;
   children: ProjectNode[];
+  /** Native team folder: never a task destination or a project mutation target. */
+  nativeFolder?: boolean;
 }
 
 export interface WorkspaceGroup {
@@ -522,6 +547,15 @@ export function projectTree(snapshot: Snapshot, order: string[] = []): Workspace
     visible.map((project) => [project.id, { project, children: [] }]),
   );
 
+  for (const folder of Object.values(snapshot.folders ?? {})) {
+    if (folder.is_deleted) continue;
+    nodes.set(folder.id, { nativeFolder: true, children: [], project: {
+      id: folder.id, name: folder.name, workspace_id: folder.workspace_id,
+      color: 'grey', child_order: folder.child_order ?? folder.default_order ?? 0,
+      parent_id: null, is_archived: false, is_deleted: false, is_favorite: false, is_folder: true,
+    } });
+  }
+
   /* Every space keeps its heading even with nothing in it yet, so its first
      project can be added from there (#13). */
   const groups = new Map<string, ProjectNode[]>([['personal', []]]);
@@ -530,9 +564,11 @@ export function projectTree(snapshot: Snapshot, order: string[] = []): Workspace
     if (!gone.is_deleted && !gone.is_archived) groups.set(workspace.id, []);
   }
 
-  for (const project of visible) {
-    const node = nodes.get(project.id)!;
-    const parent = project.parent_id ? nodes.get(project.parent_id) : undefined;
+  for (const node of nodes.values()) {
+    const project = node.project;
+    const parentId = project.folder_id ?? project.parent_id;
+    const candidate = parentId ? nodes.get(parentId) : undefined;
+    const parent = candidate && (candidate.project.workspace_id ?? null) === (project.workspace_id ?? null) ? candidate : undefined;
     if (parent) {
       parent.children.push(node);
       continue;
@@ -590,7 +626,7 @@ export function siblingOrder(snapshot: Snapshot, projectId: string): string[] {
       !other.is_archived &&
       !other.is_deleted &&
       !other.inbox_project &&
-      (other.parent_id ?? null) === (project.parent_id ?? null) &&
+      (other.folder_id ?? other.parent_id ?? null) === (project.folder_id ?? project.parent_id ?? null) &&
       (other.workspace_id ?? null) === (project.workspace_id ?? null))
     .sort(byChildOrder)
     .map((other) => other.id);

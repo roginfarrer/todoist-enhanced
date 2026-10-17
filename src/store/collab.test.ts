@@ -8,7 +8,9 @@ import type { AppState } from './types';
 function setup() {
   const sent: Command[][] = [];
   const snapshot = emptySnapshot();
-  snapshot.items.a = item({ id: 'a' });
+  snapshot.items.a = item({ id: 'a', project_id: 'p' });
+  snapshot.collaborators.u2 = { id: 'u2', full_name: 'Other', email: '', image_id: null };
+  snapshot.collaboratorStates = [{ project_id: 'p', user_id: 'u2', state: 'active' }];
   snapshot.notifications = {
     n1: { id: 'n1', is_unread: true, notification_type: 'share_invitation_sent', invitation_id: '7', invitation_secret: 'sec' },
     n2: { id: 'n2', is_unread: true },
@@ -16,6 +18,7 @@ function setup() {
   };
   const state = {
     snapshot,
+    loadProjectPeople: vi.fn(async () => {}),
     apply: vi.fn(async (commands: Command[], optimistic: (s: typeof snapshot) => typeof snapshot) => {
       sent.push(commands);
       state.snapshot = optimistic(state.snapshot);

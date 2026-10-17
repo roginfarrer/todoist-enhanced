@@ -3033,3 +3033,5 @@ html.desktop-app .demobanner button{-webkit-app-region:no-drag;app-region:no-dra
 .sharelist li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border)}
 .sharelist small{display:block;color:var(--muted)}
 
+/* A person given by `+name` is marked like a tag: a name handed to a field. */
+.nmark.assignee{--mark:var(--accent-dark)}

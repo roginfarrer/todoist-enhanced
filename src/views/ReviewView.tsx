@@ -1,3 +1,7 @@
+import { AssigneeBadge } from '@/components/AssigneeBadge';
+import { matchesAssignee } from '@/domain/assignees';
+import { viewPrefs } from '@/store/prefs';
+import { AssigneeFilter } from '@/components/AssigneeFilter';
 import { HireNote } from '@/components/HireNote';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
@@ -79,8 +83,14 @@ interface ReviewViewProps {
  */
 export function ReviewView({ onOpen }: ReviewViewProps) {
   const { t, locale } = useT();
-  const { snapshot, items, childrenOf } = useData();
+  const { snapshot, items, childrenOf } = useData('review');
   const prefs = useStore((s) => s.prefs);
+  const reviewFilters = viewPrefs(prefs, 'review').filters;
+  useEffect(() => {
+    if (reviewFilters.workspaces.length) useStore.getState().setViewPrefs('review', {
+      filters: { ...reviewFilters, workspaces: [] },
+    });
+  }, [reviewFilters]);
   const sendTo = useStore((s) => s.sendTo);
   const toggleTask = useStore((s) => s.toggleTask);
   const skipOccurrence = useStore((s) => s.skipOccurrence);
@@ -122,7 +132,7 @@ export function ReviewView({ onOpen }: ReviewViewProps) {
   );
   /* `previous` is the week before, which is what turns a bar chart into a
      comparison: the same seven days, one week back, drawn as a dotted line. */
-  const { data: completed, previous, loading } = useCompleted(weekRange, cadence === 'weekly');
+  const { data: completed, previous, loading } = useCompleted(weekRange, cadence === 'weekly', 'review');
 
   const roots = useMemo(() => rootItems(items), [items]);
 
@@ -214,7 +224,8 @@ export function ReviewView({ onOpen }: ReviewViewProps) {
        act in slower motion. Where it was is where it stays. */
     return shown.current.ids
       .map((id) => snapshot.items[id])
-      .filter((item): item is Item => !!item && !item.is_deleted && !item.checked);
+      .filter((item): item is Item => !!item && !item.is_deleted && !item.checked
+        && matchesAssignee(item, viewPrefs(prefs, 'review').filters.assignees, snapshot));
   };
 
   /**
@@ -270,6 +281,8 @@ export function ReviewView({ onOpen }: ReviewViewProps) {
           </div>
         )}
 
+        <div className="review-controls">
+        <AssigneeFilter viewKey="review" variant="toolbar" />
         <div className="segmented small reviewcadence" role="group" aria-label={t('review.title')}>
           {(['daily', 'weekly'] as const).map((value) => (
             <button
@@ -280,6 +293,7 @@ export function ReviewView({ onOpen }: ReviewViewProps) {
               {t(`review.cadence.${value}` as TranslationKey)}
             </button>
           ))}
+        </div>
         </div>
 
       </div>
@@ -480,7 +494,7 @@ export function ReviewView({ onOpen }: ReviewViewProps) {
         )}
 
         <button className="reviewname" onClick={() => onOpen(item.id)}>
-          <span className="ttitle">{plainTitle(displayTaskContent(item))}</span>
+          <span className="review-title-line"><span className="ttitle">{plainTitle(displayTaskContent(item))}</span><AssigneeBadge id={item.responsible_uid} /></span>
           <span className="meta">
             {due && (
               <span className={s.id === 'overdue' ? 'late' : undefined}>
@@ -693,7 +707,7 @@ export function ReviewView({ onOpen }: ReviewViewProps) {
     const live = snapshot.items[taskId];
     const body = (
       <>
-        <span className="ttitle">{plainTitle(done.content)}</span>
+        <span className="review-title-line"><span className="ttitle">{plainTitle(done.content)}</span><AssigneeBadge id={done.responsible_uid ?? live?.responsible_uid ?? null} /></span>
         <span className="meta">
           <span>{formatRelativeDay(new Date(done.completed_at), locale)}</span>
           {project && !project.inbox_project && (
@@ -981,7 +995,7 @@ function Estimates({
                 <Icon name="check" />
               </span>
               <button className="reviewname" tabIndex={-1} onClick={() => onOpen(item.id)}>
-                <span className="ttitle">{plainTitle(item.content)}</span>
+                <span className="review-title-line"><span className="ttitle">{plainTitle(item.content)}</span><AssigneeBadge id={item.responsible_uid} /></span>
                 {project && !project.inbox_project && (
                   <span className="meta">
                     <span className="proj" style={markerStyle(project.color, false)}>

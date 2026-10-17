@@ -1,14 +1,20 @@
+import { addDays, endOfDay } from 'date-fns';
+import { dueDate, isToday } from '@/domain/dates';
+import { viewPrefs } from '@/store/prefs';
+import { assigneeItems } from '@/domain/assignees';
+import { datedRoots, childIndex, makeChildrenOf, openItems, applyFilters } from '@/store/selectors';
 import { useFilterCounts } from '@/hooks/useFilterResult';
 import { FilterMark } from './FilterMark';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
+import { WorkspaceAvatar } from './WorkspaceFilter';
 import { useT } from '@/hooks/useT';
 import { useData } from '@/hooks/useData';
 import { useStore } from '@/store/store';
 import { navigate, type Route } from '@/hooks/useRoute';
 import { projectCounts, projectTree, rootItems, type ProjectNode } from '@/store/selectors';
-import { anytimeItems, bucketOf, hasLabel, somedayItems, upcomingItems, weekItems } from '@/domain/views';
+import { bucketOf, hasLabel, somedayItems, upcomingItems, weekItems } from '@/domain/views';
 import { markerStyle, avatarUrl } from '@/domain/colors';
 import { firstName, karmaStanding } from '@/domain/karma';
 import { readProjectIcon } from '@/domain/projectIcons';
@@ -84,6 +90,7 @@ export function Sidebar({
   }, []);
   const { t } = useT();
   const { snapshot, items } = useData();
+  const prefs = useStore((state) => state.prefs);
   const sheet = variant === 'sheet';
   const collapsed = useStore((s) => s.prefs.sidebarCollapsed) && !sheet;
   const setPrefs = useStore((s) => s.setPrefs);
@@ -138,20 +145,29 @@ export function Sidebar({
 
   const counts = useMemo(() => {
     const now = new Date();
+    const scope = (key: string) => {
+      const filters = viewPrefs(prefs, key).filters;
+      const scoped = { ...snapshot, items: assigneeItems(snapshot, filters.assignees) };
+      const list = ['today', 'week', 'upcoming'].includes(key) ? datedRoots(openItems(scoped), scoped) : rootItems(openItems(scoped));
+      return applyFilters(list, ['today', 'week', 'upcoming'].includes(key) ? { ...filters, includeScheduled: true } : filters, snapshot, makeChildrenOf(childIndex(scoped)));
+    };
     return {
-      inbox: inboxId ? roots.filter((i) => i.project_id === inboxId).length : 0,
-      today: roots.filter((i) => {
+      inbox: inboxId ? scope('inbox').filter((i) => i.project_id === inboxId).length : 0,
+      today: scope('today').filter((i) => {
         const bucket = bucketOf(i, now);
         return bucket === 'overdue' || bucket === 'today';
       }).length,
       /* The count has to match the page. A "My week" that no longer contains
          today must not keep counting today's work. */
-      week: (weekLayout === 'split' ? anytimeItems(roots, now) : weekItems(roots, now)).length,
-      upcoming: upcomingItems(roots).length,
-      someday: somedayItems(roots).length,
+      week: weekItems(scope('week'), now).filter((item) => viewPrefs(prefs, 'week').filters.includeScheduled || !isToday(item, now)).length,
+      upcoming: upcomingItems(scope('upcoming')).filter((item) => {
+        const date = dueDate(item);
+        return date !== null && date <= endOfDay(addDays(now, prefs.upcomingHorizonDays));
+      }).length,
+      someday: somedayItems(scope('someday')).length,
       byProject: projectCounts(roots),
     };
-  }, [roots, inboxId, weekLayout]);
+  }, [roots, inboxId, snapshot, prefs]);
 
   /** Favourites are Todoist's own star, not a separate list this app keeps. */
   const favourites = useMemo(() => {
@@ -296,7 +312,13 @@ export function Sidebar({
           {/* A folder takes a project dropped on it, which is the only thing a
               folder is for and was the one place in the sidebar you could not
               drag a project into. */}
-          <ProjectDropRow projectId={project.id}>
+          {node.nativeFolder ? <div className="navrow">
+            <button className="navitem folderitem" aria-expanded={isOpen}
+              onClick={() => setOpenFolders((prev) => ({ ...prev, [project.id]: !isOpen }))}>
+              <Icon name="project" /><span className="label">{project.name}</span>
+              <Icon name={isOpen ? 'caret-up' : 'caret'} size="sm" className="disclose" />
+            </button>
+          </div> : <ProjectDropRow projectId={project.id}>
             <button
               className="navitem folderitem"
               data-tour="folder"
@@ -307,7 +329,7 @@ export function Sidebar({
               <span className="label">{project.name}</span>
               <Icon name={isOpen ? 'caret-up' : 'caret'} size="sm" className="disclose" />
             </button>
-          </ProjectDropRow>
+          </ProjectDropRow>}
           {isOpen && children.map((child) => projectNode(child, keyPrefix, depth + 1))}
         </div>
       );
@@ -582,6 +604,7 @@ export function Sidebar({
               key={key}
               title={workspace.name ?? t('nav.myProjects')}
               logo={workspace.workspaceId ? snapshot.workspaces[workspace.workspaceId]?.logo_big ?? null : null}
+              workspaceId={workspace.workspaceId}
               open={openGroups[key] ?? true}
               onToggle={() => toggleGroup(key)}
               onAdd={() => onProjectSheet({
@@ -641,11 +664,12 @@ export function Sidebar({
  * resting sidebar stays quiet.
  */
 function SideGroup({
-  title, logo, open, onToggle, onAdd, addLabel, dropTarget, children,
+  title, logo, workspaceId, open, onToggle, onAdd, addLabel, dropTarget, children,
 }: {
   title: string;
-  /** A workspace's own picture, when Todoist has one. */
+  /** A workspace's own picture, when Todoist has one; its initial stands in when it has not. */
   logo?: string | null;
+  workspaceId?: string | null;
   open: boolean;
   onToggle: () => void;
   onAdd?: () => void;
@@ -657,7 +681,7 @@ function SideGroup({
   const head = () => (
     <div className="side-head">
         <button className="side-headbtn" aria-expanded={open} onClick={onToggle}>
-          {logo && <img className="side-logo" src={logo} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+          {workspaceId && <WorkspaceAvatar small id={workspaceId} name={title} logo={logo} />}
           <span>{title}</span>
         </button>
         {onAdd && (

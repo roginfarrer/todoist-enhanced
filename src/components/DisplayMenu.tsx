@@ -1,3 +1,6 @@
+import { ME, UNASSIGNED } from '@/domain/assignees';
+import { AssigneeFilter } from './AssigneeFilter';
+import { WorkspaceFilter } from './WorkspaceFilter';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, type IconName } from './Icon';
 import { Select } from './Select';
@@ -44,10 +47,11 @@ const MODE_ICON: Record<DisplayMode, IconName> = {
 /** An icon for every grouping and sort, so the list reads at a glance. */
 const GROUP_ICON: Partial<Record<GroupKey, IconName>> = {
   none: 'list', scheduled: 'calendar', day: 'calendar', week: 'week', month: 'calendar',
-  workspace: 'project', project: 'project', section: 'section', priority: 'flag',
+  assignee: 'user', workspace: 'project', project: 'project', section: 'section', priority: 'flag',
   label: 'tag', estimate: 'clock',
 };
 const SORT_ICON: Record<SortKey, IconName> = {
+  assignee: 'user',
   manual: 'drag', priority: 'flag', due: 'calendar', 'added-desc': 'sort', 'added-asc': 'sort',
   alphabetical: 'sort', 'estimate-asc': 'clock', 'estimate-desc': 'clock', label: 'tag',
 };
@@ -72,6 +76,8 @@ export function DisplayMenu({
      and the reset both mean "back to how this view starts", and a view that
      starts grouped by project has to be able to say so. */
   const base = defaultViewPrefs(viewKey);
+  const scheduledToggle = viewKey !== 'today' && viewKey !== 'upcoming';
+  const scheduledLabel = viewKey === 'week' ? 'filter.showToday' : 'filter.includeScheduled';
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -90,6 +96,7 @@ export function DisplayMenu({
   }, [open]);
 
   const sorts: SortKey[] = [
+    ...(viewKey.startsWith('project:') ? ['assignee' as const] : []),
     'manual', 'priority', 'due', 'added-desc', 'added-asc', 'alphabetical',
     'estimate-asc', 'estimate-desc', 'label',
   ];
@@ -100,8 +107,14 @@ export function DisplayMenu({
   /* How many settings narrow or reorder this view beyond its defaults. List
      or board, and a board's width, are how the page is drawn, not a filter
      on what it shows: they are visible at a glance and do not count. */
+  const workspaceIds = [PERSONAL_WORKSPACE, ...Object.keys(snapshot.workspaces)];
+  const allWorkspaces = workspaceIds.every((id) => current.filters.workspaces.includes(id));
+  const assigneeIds = new Set([ME, UNASSIGNED, ...Object.keys(snapshot.collaborators), ...Object.values(snapshot.items).flatMap((item) => item.responsible_uid ? [item.responsible_uid] : [])]);
+  assigneeIds.delete(snapshot.user?.id ?? '');
+  const allAssignees = current.filters.assignees != null && [...assigneeIds].every((id) => current.filters.assignees!.includes(id));
   const changed =
-    countActiveFilters(current.filters) +
+    countActiveFilters(scheduledToggle ? current.filters : { ...current.filters, includeScheduled: true }) - Number(allWorkspaces && current.filters.workspaces.length > 0) - Number(current.filters.assignees != null)
+      + Number(JSON.stringify(allAssignees && base.filters.assignees == null ? null : current.filters.assignees) !== JSON.stringify(base.filters.assignees)) +
     (shownGroup !== base.group ? 1 : 0) +
     (current.sort !== base.sort ? 1 : 0);
 
@@ -122,7 +135,6 @@ export function DisplayMenu({
     pageItems.forEach(walk);
     return all.filter((l) => used.has(l.name.toLowerCase()));
   }, [snapshot.labels, pageItems, childrenOf, current.filters.labels]);
-  const workspaces = Object.values(snapshot.workspaces);
 
   const toggleIn = <T,>(list: T[], value: T): T[] =>
     list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
@@ -198,6 +210,8 @@ export function DisplayMenu({
 
           {/* Filters are toggles you can see the state of at a glance, rather
               than a column of checkboxes to read one by one. */}
+          {showWorkspaces && <WorkspaceFilter viewKey={viewKey} />}
+          <AssigneeFilter viewKey={viewKey} />
           <h5>{t('filter.priorities')}</h5>
           <div className="chiprow">
             {([1, 2, 3, 4] as const).map((p) => (
@@ -234,51 +248,19 @@ export function DisplayMenu({
             ))}
           </div>
 
-          {/* "My projects" isn't a workspace Todoist hands back — it's the
-              absence of one — so there is nothing to offer this against
-              until the account has added a real one. From that point on
-              there are always at least two places a task can be: personal,
-              or that workspace. */}
-          {showWorkspaces && workspaces.length > 0 && (
-            <>
-              <h5>{t('filter.workspaces')}</h5>
-              <div className="segmented small">
-                <button
-                  aria-pressed={current.filters.workspaces.length === 0}
-                  onClick={() => setFilters({ workspaces: [] })}
-                >
-                  <small>{t('filter.any')}</small>
-                </button>
-                <button
-                  aria-pressed={current.filters.workspaces[0] === PERSONAL_WORKSPACE}
-                  onClick={() => setFilters({ workspaces: [PERSONAL_WORKSPACE] })}
-                >
-                  <small>{t('nav.myProjects')}</small>
-                </button>
-                {workspaces.map((workspace) => (
-                  <button
-                    key={workspace.id}
-                    aria-pressed={current.filters.workspaces[0] === workspace.id}
-                    onClick={() => setFilters({ workspaces: [workspace.id] })}
-                  >
-                    <small>{workspace.name}</small>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
 
           <hr />
-          <div className="panelrow">
-            <span>{t('filter.includeScheduled')}</span>
+          <div className="display-toggles">
+          {scheduledToggle && <div className="panelrow">
+            <span>{t(scheduledLabel)}</span>
             <button
               className="switch"
               role="switch"
               aria-checked={current.filters.includeScheduled}
-              aria-label={t('filter.includeScheduled')}
+              aria-label={t(scheduledLabel)}
               onClick={() => setFilters({ includeScheduled: !current.filters.includeScheduled })}
             />
-          </div>
+          </div>}
           <div className="panelrow">
             <span>{t('filter.showSubtasks')}</span>
             <button
@@ -302,6 +284,7 @@ export function DisplayMenu({
             </div>
           )}
 
+          </div>
           {tags.length > 0 && <hr />}
           {tags.length > 0 && <>
               <h5>{t('filter.labels')}</h5>

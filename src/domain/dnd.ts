@@ -79,6 +79,7 @@ const dueOn = (item: Item, date: Date, time?: string) =>
  * cannot mean one thing to a drop and another to a line.
  */
 export interface TaskPlacement {
+  responsibleUid?: string | null;
   projectId?: string;
   sectionId?: string;
   date?: string;

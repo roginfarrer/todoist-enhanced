@@ -1,3 +1,6 @@
+import { useProjectPeople } from '@/hooks/useProjectPeople';
+import { useProjectCompleted } from '@/hooks/useProjectCompleted';
+import { InsightsButton } from '@/components/InsightsButton';
 import { HireNote } from '@/components/HireNote';
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { PageHeader } from '@/components/PageHeader';
@@ -75,8 +78,9 @@ function ProjectBody({
     return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', escape); };
   }, [iconOpen]);
   const { t } = useT();
+  useProjectPeople(projectId);
   const timePill = useTimePill();
-  const { snapshot, items, childrenOf } = useData();
+  const { snapshot, items, childrenOf } = useData(`project:${projectId}`);
   const prefs = useStore((s) => s.prefs);
   const updateProjectFields = useStore((s) => s.updateProjectFields);
   const updateSectionFields = useStore((s) => s.updateSectionFields);
@@ -158,22 +162,21 @@ function ProjectBody({
    * So rather than a separate list, it's folded in here, upstream of every
    * grouping below, and comes out the other side sitting where it belongs.
    *
-   * Todoist keeps a completed task in `snapshot.items` (checked, but
+   * Todoist keeps a task ticked on this device in `snapshot.items` (checked, but
    * otherwise intact — see ReviewView's own DoneRow), which is what makes
-   * this possible without a second fetch.
+   * this possible for those; the older ones are fetched (#229).
    */
+  const history = useProjectCompleted(projectId, current.filters.showCompleted);
   const pool0 = useMemo(() => {
     const openRoots = rootItems(items).filter((i) => i.project_id === projectId);
-    const roots = current.filters.showCompleted
-      ? [
-          ...openRoots,
-          ...Object.values(snapshot.items).filter(
-            (i) => i.project_id === projectId && i.checked && !i.is_deleted && !i.parent_id,
-          ),
-        ]
-      : openRoots;
-    return roots;
-  }, [items, projectId, current.filters.showCompleted, snapshot]);
+    if (!current.filters.showCompleted) return openRoots;
+    const ticked = Object.values(snapshot.items).filter(
+      (i) => i.project_id === projectId && i.checked && !i.is_deleted && !i.parent_id,
+    );
+    /* What the sync still holds wins over the history's copy of the same task. */
+    const known = new Set([...openRoots, ...ticked].map((i) => i.id));
+    return [...openRoots, ...ticked, ...history.filter((i) => !known.has(i.id) && !snapshot.items[i.id])];
+  }, [items, projectId, current.filters.showCompleted, snapshot, history]);
   const scoped = useMemo(
     () => applyFilters(pool0, current.filters, snapshot, childrenOf),
     [pool0, current.filters, snapshot, childrenOf],
@@ -377,14 +380,11 @@ function ProjectBody({
               viewKey={viewKey}
               pageItems={pool0}
               modes={['list', 'board']}
-              groups={['none', 'scheduled', 'priority', 'label', 'estimate', 'day']}
+              groups={['none', 'assignee', 'scheduled', 'priority', 'label', 'estimate', 'day']}
               completedToggle
               showWorkspaces={false}
             />
-            <button className="btn accent" onClick={onInsights}>
-              <Icon name="trend" />
-              {t('toolbar.insights')}
-            </button>
+            <InsightsButton onClick={onInsights} />
             {/* The same menu the sidebar row carries, asked from the page it
                 is about. */}
             <span className="pmenu-wrap">
@@ -445,6 +445,7 @@ function ProjectBody({
             ? (name) => { void createSection(projectId, sections.length, name); }
             : undefined}
           addToGroup={(key) => {
+            if (current.group === 'assignee') return () => onAddTaskTo({ projectId, responsibleUid: key === 'none' ? null : key });
             if (current.group === 'day' && key !== 'none') {
               return () => onAddTaskTo({ projectId, date: key });
             }
@@ -559,6 +560,7 @@ function ProjectBody({
              no sense on the one page where both halves of the answer are
              known. */
           addToGroup={(key) => {
+            if (current.group === 'assignee') return () => onAddTaskTo({ projectId, responsibleUid: key === 'none' ? null : key });
             if (current.group === 'day' && key !== 'none') {
               return () => onAddTaskTo({ projectId, date: key });
             }

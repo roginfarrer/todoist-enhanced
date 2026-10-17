@@ -33,6 +33,8 @@ export interface TodoistDuration {
 }
 
 export interface Item {
+  /** A local, read-only future occurrence; never persisted or sent to Todoist. */
+  projection?: { sourceId: string; date: string };
   id: string;
   user_id: string;
   project_id: string;
@@ -59,7 +61,21 @@ export interface Item {
   note_count?: number;
 }
 
+/** Native Todoist team folder, distinct from a project. */
+export interface Folder {
+  id: string;
+  name: string;
+  workspace_id: string;
+  child_order: number;
+  default_order?: number;
+  default_order_key?: string | null;
+  is_deleted?: boolean;
+}
+
 export interface Project {
+  is_shared?: boolean;
+  shared?: boolean;
+  can_assign_tasks?: boolean;
   id: string;
   name: string;
   description?: string;
@@ -79,7 +95,10 @@ export interface Project {
    * as far as Todoist documents it; any other value is kept and shown as it comes.
    */
   access?: { visibility?: string; configuration?: Record<string, unknown> } | null;
-  /** Todoist folders are projects that hold others rather than tasks. */
+  /** What the signed-in user is in this project: `CREATOR`, `ADMIN`, `READ_WRITE`… */
+  role?: string;
+  folder_id?: string | null;
+  /** Legacy/demo folder represented as a project. */
   is_folder?: boolean;
   collapsed?: boolean;
 }
@@ -132,6 +151,8 @@ export interface Filter {
 }
 
 export interface Workspace {
+  is_deleted?: boolean;
+  is_archived?: boolean;
   id: string;
   name: string;
   logo_big?: string | null;
@@ -141,6 +162,7 @@ export interface Workspace {
 
 /** Who a project is shared with, and whether they have said yes. */
 export interface CollaboratorState {
+  is_deleted?: boolean;
   project_id: string;
   user_id: string;
   /** `active` and `invited` are the ones that matter here; Todoist also reports who declined or left. */
@@ -228,6 +250,7 @@ export interface TodoistUser {
 
 /** A completed task as returned by the completed-tasks endpoints. */
 export interface CompletedItem {
+  responsible_uid?: string | null;
   id: string;
   task_id?: string;
   user_id: string;
@@ -244,6 +267,8 @@ export interface CompletedItem {
 
 /** Everything the app keeps about the account, kept in memory and mirrored to IndexedDB. */
 export interface Snapshot {
+  /** Optional for snapshots saved before native team folders were supported. */
+  folders?: Record<string, Folder>;
   items: Record<string, Item>;
   projects: Record<string, Project>;
   sections: Record<string, Section>;
@@ -354,11 +379,13 @@ export type ViewId =
   /** Every saved filter, to open or star. */
   | 'filters'
   | 'matrix'
-  | 'insights';
+  | 'insights'
+  | 'search';
 
 export type DisplayMode = 'list' | 'board' | 'focus';
 
 export type GroupKey =
+  | 'assignee'
   /** What the page groups by when the user has chosen nothing: sections in a
    *  project, the fixed week layout in My week, flat elsewhere. */
   | 'none'
@@ -374,6 +401,7 @@ export type GroupKey =
   | 'estimate';
 
 export type SortKey =
+  | 'assignee'
   | 'manual'
   | 'priority'
   | 'due'
@@ -385,6 +413,8 @@ export type SortKey =
   | 'label';
 
 export interface ViewFilters {
+  /** null = everyone, [] = nobody; @me and @unassigned are stable account-relative tokens. */
+  assignees?: string[] | null;
   workspaces: string[];
   projects: string[];
   labels: string[];
@@ -397,7 +427,9 @@ export interface ViewFilters {
   showCompleted: boolean;
 }
 
-export const defaultFilters = (): ViewFilters => ({
+export const defaultFilters = (viewKey?: string): ViewFilters => ({
+  assignees: viewKey && !viewKey.startsWith('project:') && !viewKey.startsWith('filter:')
+    ? ['@me', '@unassigned'] : null,
   workspaces: [],
   projects: [],
   labels: [],
@@ -448,5 +480,5 @@ export const defaultViewPrefs = (viewKey?: string): ViewPrefs => ({
   /* Upcoming is read in time order: by date (then Todoist's own order within
      a day) inside each day, week or month (#98). */
   sort: viewKey === 'upcoming' ? 'due' : 'priority',
-  filters: defaultFilters(),
+  filters: defaultFilters(viewKey),
 });

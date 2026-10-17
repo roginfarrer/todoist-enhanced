@@ -465,8 +465,18 @@ export const defaultPreferences = (locale: Locale): Preferences => ({
  * The defaults are the view's own: what a page opens grouped by depends on
  * what the page is, so the key goes with the question.
  */
-export const viewPrefs = (prefs: Preferences, viewKey: string): ViewPrefs =>
-  prefs.views[viewKey] ?? defaultViewPrefs(viewKey);
+const viewCache = new WeakMap<Preferences, Map<string, ViewPrefs>>();
+export const viewPrefs = (prefs: Preferences, viewKey: string): ViewPrefs => {
+  let views = viewCache.get(prefs);
+  if (!views) { views = new Map(); viewCache.set(prefs, views); }
+  const cached = views.get(viewKey);
+  if (cached) return cached;
+  const base = defaultViewPrefs(viewKey);
+  const saved = prefs.views[viewKey];
+  const value = saved ? { ...base, ...saved, filters: { ...base.filters, ...saved.filters } } : base;
+  views.set(viewKey, value);
+  return value;
+};
 
 /**
  * Merges stored preferences over the defaults so a version that adds a new
